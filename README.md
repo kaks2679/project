@@ -85,3 +85,6 @@ streamlit run app.py
 ## 📄 License
 
 MIT License — Free to use, learn from, and build upon.
+
+---
+*Last updated: 2026-04-01 | Version 1.0.0*
