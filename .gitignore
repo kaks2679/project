@@ -15,6 +15,11 @@ venv/
 dist/
 build/
 *.log
-data/*.csv
-data/*.xlsx
 .streamlit/secrets.toml
+
+# Notebook output images — generated at runtime, not committed
+notebooks/*.png
+notebooks/*.jpg
+notebooks/*.jpeg
+notebooks/*.svg
+notebooks/*.pdf

@@ -40,13 +40,33 @@ INDICATOR_META = {
 def render(data: dict):
     st.markdown("""
     <div style='background: linear-gradient(135deg, #1B4F72 0%, #2980B9 100%);
-                padding: 2rem; border-radius: 16px; margin-bottom: 2rem;'>
-        <h1 style='color:white; margin:0; font-size:2rem;'>📊 Kenya Economic Indicators</h1>
-        <p style='color:#AED6F1; margin-top:.5rem; font-size:1rem;'>
+                padding: .8rem 1.5rem; border-radius: 12px; margin-bottom: 1rem;'>
+        <h2 style='color:white; margin:0; font-size:1.4rem;'>📊 Kenya Economic Indicators</h2>
+        <p style='color:#AED6F1; margin:.2rem 0 0; font-size:.85rem;'>
             Real macro-economic data · World Bank API · 2000–2028 Forecast
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+    with st.expander("ℹ️ Page Guide & Stakeholder Notes", expanded=False):
+        st.markdown("""
+        **What this page shows:**
+        20+ macro-economic indicators for Kenya (2000–2023) sourced from the World Bank API,
+        with optional 5-year Holt-Winters forecasts.
+
+        **How to read the charts:**
+        - **KPI cards** — latest value + year-on-year change (🔺 up, 🔻 down, ✅ good, ❌ bad)
+        - **Trend chart** — select multiple indicators to compare on the same axis
+        - **Correlation matrix** — Pearson r: values near +1 / -1 indicate strong relationships
+        - **GDP vs Poverty scatter** — downward OLS trendline confirms economic growth reduces poverty
+
+        **For stakeholders:**
+        - 📈 *Investors*: Watch GDP growth (target >5%), inflation (<7%), and government debt trends.
+        - 🏛️ *Policy makers*: Poverty Headcount Ratio and Gini Index measure distributional impact of policy.
+        - 🎓 *Researchers*: Use the data table + CSV download for econometric analysis.
+        - 💡 *Key insight*: Kenya's GDP per capita grew from ~$400 (2000) to ~$1,800 (2023) yet
+          poverty headcount remains ~33% — highlighting growth-inequality decoupling.
+        """)
 
     macro_df = data["macro"]
     if macro_df.empty:

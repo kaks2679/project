@@ -1,0 +1,51 @@
+County,Poverty_Rate,Population_2019,Unemployment_Rate,Mobile_Penetration,Electricity_Access,HDI_Score,Latitude,Longitude,Region,Cluster,Cluster_Label
+Nairobi,17.0,4397073,26.5,98.2,92.4,0.612,-1.2921,36.8219,Nairobi,0,🌿 Emerging (Low Poverty)
+Mombasa,24.3,1208333,28.3,92.4,78.3,0.548,-4.0435,39.6682,Coast,0,🌿 Emerging (Low Poverty)
+Kisumu,35.6,968872,31.2,85.3,68.5,0.504,-0.1022,34.7617,Nyanza,1,📈 Developing
+Nakuru,20.2,2162202,22.4,88.7,72.4,0.541,-0.3031,36.08,Rift Valley,0,🌿 Emerging (Low Poverty)
+Eldoret (Uasin Gishu),18.4,1163186,20.8,90.1,74.5,0.558,0.5143,35.2698,Rift Valley,0,🌿 Emerging (Low Poverty)
+Kiambu,13.2,2417735,18.9,95.3,85.6,0.592,-1.031,36.831,Central,0,🌿 Emerging (Low Poverty)
+Machakos,32.4,1421932,24.6,82.4,62.4,0.489,-1.5176,37.2634,Eastern,1,📈 Developing
+Meru,27.8,1545714,20.3,79.6,58.7,0.511,0.0467,37.649,Eastern,1,📈 Developing
+Nyeri,17.5,759164,18.7,84.2,70.4,0.568,-0.4239,36.9516,Central,0,🌿 Emerging (Low Poverty)
+Kisii,36.1,1266860,29.4,76.8,55.3,0.473,-0.6698,34.768,Nyanza,1,📈 Developing
+Kakamega,41.5,1867579,33.5,68.4,45.6,0.422,0.2827,34.7522,Western,2,⚡ Transitioning
+Bungoma,38.2,1670570,31.8,72.3,48.7,0.438,0.5635,34.5571,Western,2,⚡ Transitioning
+Kilifi,57.8,1453787,38.2,58.7,32.4,0.371,-3.5107,39.9093,Coast,3,⚠️ Vulnerable
+Kwale,63.1,866820,42.1,52.3,28.6,0.328,-4.1745,39.4524,Coast,3,⚠️ Vulnerable
+Tana River,73.5,315943,48.7,38.4,15.4,0.252,-0.83,40.0167,Coast,4,🔴 Critical Need
+Garissa,68.2,841353,52.3,45.6,22.5,0.312,-0.4532,39.6467,North Eastern,4,🔴 Critical Need
+Wajir,82.4,781263,58.4,32.1,18.3,0.246,1.7471,40.0624,North Eastern,4,🔴 Critical Need
+Mandera,76.3,1025756,62.1,28.7,12.4,0.218,3.9373,41.8569,North Eastern,4,🔴 Critical Need
+Turkana,79.4,926976,65.3,25.4,10.8,0.208,3.122,35.5984,Rift Valley,4,🔴 Critical Need
+Marsabit,70.8,459785,54.8,38.5,22.4,0.298,2.3284,37.9947,Eastern,4,🔴 Critical Need
+Isiolo,52.3,268002,40.2,55.3,38.4,0.382,0.3556,37.5833,Eastern,3,⚠️ Vulnerable
+Samburu,75.4,310327,56.4,42.7,24.6,0.278,1.2156,36.9333,Rift Valley,4,🔴 Critical Need
+West Pokot,68.7,621241,52.7,38.9,18.5,0.312,1.7474,35.1164,Rift Valley,4,🔴 Critical Need
+Trans Nzoia,35.2,990341,28.6,75.6,60.4,0.486,1.0566,35.0008,Rift Valley,1,📈 Developing
+Baringo,45.6,666763,37.4,60.4,42.5,0.398,0.492,35.9736,Rift Valley,3,⚠️ Vulnerable
+Laikipia,32.8,518560,29.8,72.8,65.4,0.478,0.3606,36.782,Rift Valley,1,📈 Developing
+Nyandarua,30.5,638289,25.3,80.3,72.3,0.508,-0.18,36.5333,Central,1,📈 Developing
+Kirinyaga,15.8,610411,17.5,89.4,80.4,0.574,-0.6593,37.2834,Central,0,🌿 Emerging (Low Poverty)
+Murang'a,21.4,1055791,19.8,87.2,78.5,0.552,-0.7177,37.0333,Central,0,🌿 Emerging (Low Poverty)
+Embu,18.9,610091,18.2,86.5,75.6,0.545,-0.539,37.45,Eastern,0,🌿 Emerging (Low Poverty)
+Kitui,52.4,1136187,38.4,54.3,35.4,0.354,-1.3667,38.0107,Eastern,3,⚠️ Vulnerable
+Makueni,48.7,987653,35.6,60.8,42.3,0.396,-1.8033,37.6226,Eastern,3,⚠️ Vulnerable
+Tharaka-Nithi,41.2,393177,32.1,65.4,48.6,0.428,-0.3,37.65,Eastern,2,⚡ Transitioning
+Mwingi (Kitui),55.6,1136187,38.4,54.3,35.4,0.354,-1.3667,38.0107,Eastern,3,⚠️ Vulnerable
+Taita Taveta,45.8,340671,36.5,62.4,52.4,0.402,-3.3167,38.3667,Coast,2,⚡ Transitioning
+Lamu,48.3,143920,38.2,58.4,45.6,0.365,-2.2686,40.902,Coast,3,⚠️ Vulnerable
+Kajiado,19.5,1107296,22.5,84.5,72.4,0.528,-1.8524,36.782,Rift Valley,0,🌿 Emerging (Low Poverty)
+Narok,46.3,1157873,38.3,58.7,40.3,0.384,-1.097,35.87,Rift Valley,3,⚠️ Vulnerable
+Bomet,38.4,857722,31.4,62.4,45.6,0.412,-0.7901,35.3414,Rift Valley,2,⚡ Transitioning
+Kericho,22.7,901777,20.6,82.3,68.4,0.524,-0.367,35.2763,Rift Valley,0,🌿 Emerging (Low Poverty)
+Nandi,33.5,885711,27.4,72.6,55.3,0.462,0.1827,35.1027,Rift Valley,1,📈 Developing
+Elgeyo Marakwet,34.2,480271,28.5,68.4,52.4,0.448,0.7742,35.5095,Rift Valley,2,⚡ Transitioning
+Vihiga,39.4,590013,32.1,70.2,55.6,0.448,0.0822,34.7213,Western,2,⚡ Transitioning
+Siaya,42.5,993183,34.5,65.3,48.3,0.394,0.0612,34.2422,Nyanza,2,⚡ Transitioning
+Homa Bay,47.3,1131950,38.2,58.4,42.6,0.352,-0.5265,34.4571,Nyanza,3,⚠️ Vulnerable
+Migori,43.5,1116436,36.7,60.7,45.4,0.378,-1.0634,34.4734,Nyanza,3,⚠️ Vulnerable
+Nyamira,34.7,605576,29.8,64.8,50.3,0.432,-0.5667,34.9333,Nyanza,2,⚡ Transitioning
+Mombasa Coast (Kwale),63.1,866820,42.1,52.3,28.6,0.328,-4.1745,39.4524,Coast,3,⚠️ Vulnerable
+Busia,46.5,893681,38.5,58.6,42.5,0.376,0.4608,34.1115,Western,3,⚠️ Vulnerable
+Lugari (Kakamega),41.5,1867579,33.5,68.4,45.6,0.422,0.2827,34.7522,Western,2,⚡ Transitioning
