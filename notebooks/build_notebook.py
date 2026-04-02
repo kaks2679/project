@@ -171,7 +171,7 @@ else:
             fontsize=14, color="#27AE60")
     ax.set_title("Missing Values Check — Macro Indicators")
 plt.tight_layout()
-plt.savefig("missing_values.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 ''').strip()))
 
@@ -218,7 +218,7 @@ ax2.set_title("Inflation vs CBK Target")
 ax2.legend()
 
 plt.tight_layout()
-plt.savefig("macro_trends.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 
 print(f"GDP Growth - Mean: {macro_clean['GDP Growth (%)'].mean():.2f}%  "
@@ -246,7 +246,7 @@ ax.set_xticklabels(ax.get_xticklabels(), rotation=35, ha="right", fontsize=9)
 ax.set_yticklabels(ax.get_yticklabels(), rotation=0, fontsize=9)
 
 plt.tight_layout()
-plt.savefig("correlation_matrix.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 
 if "GDP Growth (%)" in corr_matrix.columns:
@@ -278,7 +278,7 @@ ax1.set_xlabel("Year")
 ax1.legend(loc="upper left"); ax2.legend(loc="upper right")
 
 plt.tight_layout()
-plt.savefig("mpesa_revolution.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 
 print(f"M-Pesa Users: {mobile['MPesa_Users_M'].iloc[0]:.1f}M (2007) -> "
@@ -317,7 +317,7 @@ ax2.legend()
 
 plt.suptitle("Kenya County-Level Poverty Inequality", fontsize=15)
 plt.tight_layout()
-plt.savefig("county_inequality.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 
 print(f"County Poverty Range: {county['Poverty_Rate'].min():.1f}% to "
@@ -356,8 +356,7 @@ ax2.legend()
 
 plt.suptitle("Youth Unemployment Analysis", fontsize=14)
 plt.tight_layout()
-plt.savefig("youth_unemployment_eda.png", dpi=120, bbox_inches="tight",
-            facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 
 corr_val = youth["GDP_Growth"].corr(youth["Youth_Unemployment_Pct"])
@@ -452,7 +451,7 @@ for bar, val in zip(ax2.patches, imp_df["Importance"][::-1]):
 
 plt.suptitle(f"Mobile Money Impact on Poverty (R2={best_r2:.3f})", fontsize=14)
 plt.tight_layout()
-plt.savefig("ml_poverty_model.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 print(f"Best model R2 = {best_r2:.4f} -> explains {best_r2*100:.1f}% of poverty variance")
 ''').strip()))
@@ -510,7 +509,7 @@ ax2.legend(loc="upper right", fontsize=9); ax2.grid(True, alpha=0.3)
 
 plt.suptitle("KMeans County Clustering (k=5)", fontsize=14)
 plt.tight_layout()
-plt.savefig("county_clusters.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 
 print("Cluster Summary:")
@@ -575,8 +574,7 @@ for bar, val in zip(ax2.patches, yu_imp["Importance"][::-1]):
 
 plt.suptitle("Youth Unemployment GBM Model", fontsize=14)
 plt.tight_layout()
-plt.savefig("youth_unemployment_model.png", dpi=120, bbox_inches="tight",
-            facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 print(f"Training R2 = {train_r2_yu:.4f}")
 print(f"5-yr Forecast: {', '.join(f'{yr}: {v:.1f}%' for yr,v in zip(yu_yrs,yu_fc))}")
@@ -615,7 +613,7 @@ for ax, (col, color) in zip(axes, targets_fc.items()):
 
 plt.suptitle("Holt-Winters Exponential Smoothing - 5-Year Forecasts", fontsize=14)
 plt.tight_layout()
-plt.savefig("forecasts.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 ''').strip()))
 
@@ -663,7 +661,7 @@ ax2.grid(True, alpha=0.3)
 
 plt.suptitle("Isolation Forest Economic Anomaly Detection", fontsize=14)
 plt.tight_layout()
-plt.savefig("anomaly_detection.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 
 anomalous_years = sorted(anom_df[anom_df["Anomaly"]]["Year"].tolist())
@@ -740,7 +738,7 @@ ax.legend(loc="upper right", fontsize=9)
 ax.grid(True, alpha=0.25, axis="y")
 
 plt.tight_layout()
-plt.savefig("policy_simulation.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+# (image saved inline in notebook output)
 plt.show()
 ''').strip()))
 

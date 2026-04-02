@@ -16,3 +16,10 @@ dist/
 build/
 *.log
 .streamlit/secrets.toml
+
+# Notebook output images — generated at runtime, not committed
+notebooks/*.png
+notebooks/*.jpg
+notebooks/*.jpeg
+notebooks/*.svg
+notebooks/*.pdf
