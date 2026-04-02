@@ -31,13 +31,37 @@ FORECASTABLE = [
 def render(data: dict):
     st.markdown("""
     <div style='background: linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%);
-                padding: 2rem; border-radius: 16px; margin-bottom: 2rem;'>
-        <h1 style='color:white; margin:0; font-size:2rem;'>🔮 Economic Forecaster</h1>
-        <p style='color:#AED6F1; margin-top:.5rem; font-size:1rem;'>
+                padding: .8rem 1.5rem; border-radius: 12px; margin-bottom: 1rem;'>
+        <h2 style='color:white; margin:0; font-size:1.4rem;'>🔮 Economic Forecaster</h2>
+        <p style='color:#AED6F1; margin:.2rem 0 0; font-size:.85rem;'>
             Holt-Winters Exponential Smoothing · ARIMA(2,1,2) · 5–10 Year Projections
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+    with st.expander("ℹ️ Page Guide & Stakeholder Notes", expanded=False):
+        st.markdown("""
+        **What this page shows:**
+        Two complementary time-series forecasting models applied to Kenya's macro indicators:
+        - **Holt-Winters** (exponential smoothing) — best for smooth trend + seasonal patterns
+        - **ARIMA(2,1,2)** — best for capturing autocorrelation and irregular fluctuations
+
+        **How to read the results:**
+        - **Solid line** = historical data (World Bank 2000–2023)
+        - **Dashed orange line** = Holt-Winters point forecast
+        - **Shaded confidence band** (ARIMA) = 95% interval — reality should fall within this range
+        - **Error metrics**: RMSE = root mean squared error (lower = better), MAPE = % error
+
+        **For stakeholders:**
+        - 🏛️ *Policy makers*: GDP growth forecast ~5% through 2028 if current trends hold.
+          Inflation forecast shows gradual convergence to CBK's 5% target by 2026.
+        - 📈 *Investors*: GDP per capita forecast shows continued growth — Kenya remains one of
+          East Africa's most investable frontier markets.
+        - ⚠️ *Important caveat*: Forecasts assume no major shocks (pandemics, droughts, elections).
+          Use the Anomaly Detection page to assess historical shock frequency.
+        - 💡 *Key insight*: The widening ARIMA confidence bands beyond 2026 reflect genuine
+          uncertainty — do not treat point forecasts as certainties.
+        """)
 
     macro_df = data["macro"].copy()
 

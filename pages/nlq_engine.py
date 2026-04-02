@@ -95,7 +95,7 @@ def _answer(topic: str, data: dict) -> dict:
     elif topic == "gdp_capita":
         col = "GDP per Capita (constant USD)"
         if col in macro.columns:
-            s = macro[[" Year", col]].dropna() if " Year" in macro.columns else macro[["Year", col]].dropna()
+            s = macro[["Year", col]].dropna()
             last = s[col].iloc[-1]; yr = int(s["Year"].iloc[-1])
             text = (f"Kenya's GDP per capita was **USD {last:,.0f}** in **{yr}** (constant 2015 USD). "
                     f"It has grown from ~USD 400 in 2000, reflecting economic transformation.")
@@ -323,42 +323,91 @@ def _dark_layout(title: str, xtitle: str = "", ytitle: str = "") -> dict:
 
 
 def render(data: dict):
+    # ── Compact header ────────────────────────────────────────────────
     st.markdown("""
     <div style='background: linear-gradient(135deg, #0D1B2A 0%, #1B2838 50%, #1C4E80 100%);
-                padding: 2rem; border-radius: 16px; margin-bottom: 2rem;'>
-        <h1 style='color:white; margin:0; font-size:2rem;'>💬 Natural Language Query Engine</h1>
-        <p style='color:#AED6F1; margin-top:.5rem; font-size:1rem;'>
-            Ask any question about Kenya's economy in plain English — get data-backed answers instantly.
-        </p>
+                padding: 1rem 1.5rem; border-radius: 12px; margin-bottom: 1.2rem;
+                display:flex; align-items:center; gap:1rem;'>
+        <div>
+            <h2 style='color:white; margin:0; font-size:1.4rem;'>💬 Natural Language Query Engine</h2>
+            <p style='color:#AED6F1; margin:.2rem 0 0; font-size:.85rem;'>
+                Ask any question about Kenya's economy in plain English — get instant data-backed answers
+            </p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Stakeholder context ───────────────────────────────────────────
+    with st.expander("ℹ️ How to use this page", expanded=False):
+        st.markdown("""
+        **Who is this for?**
+        Policy makers, investors, researchers, and journalists who need quick, accurate answers
+        about Kenya's economy without writing code or navigating multiple dashboards.
+
+        **How it works:**
+        Type any plain-English question. The engine classifies your intent across 16 topic areas,
+        queries the live datasets, and returns a written summary + interactive chart.
+
+        **Supported topics:**
+        GDP growth · Poverty · Inflation · Unemployment · Youth unemployment ·
+        M-Pesa/Mobile money · Mobile penetration · Counties · Gini/Inequality ·
+        Electricity access · Remittances · Sector employment · Economic forecasts ·
+        Best/worst counties
+        """)
+
+    # ── Session state for question (enables button clicks) ────────────
+    if "nlq_active_question" not in st.session_state:
+        st.session_state["nlq_active_question"] = ""
+
     # ── Search bar ────────────────────────────────────────────────────
-    question = st.text_input(
+    typed = st.text_input(
         "🔍 Ask a question about Kenya's economy:",
+        value=st.session_state["nlq_active_question"],
         placeholder="e.g. What is Kenya's poverty rate?  |  Which county is poorest?  |  Show M-Pesa growth",
-        key="nlq_question"
+        key="nlq_text_input"
     )
+    # Sync typed input back to state
+    if typed != st.session_state["nlq_active_question"]:
+        st.session_state["nlq_active_question"] = typed
 
-    # ── Example questions ─────────────────────────────────────────────
-    st.markdown("**💡 Example questions — click to try:**")
-    cols = st.columns(5)
-    for i, (col, q) in enumerate(zip(cols * 2, EXAMPLE_QUESTIONS)):
-        if col.button(q[:28] + ("…" if len(q) > 28 else ""), key=f"eq_{i}"):
-            question = q
+    # ── Example question buttons ──────────────────────────────────────
+    st.markdown("<p style='color:#AAB7B8; font-size:.82rem; margin:.4rem 0 .2rem;'>💡 <b>Quick questions — click to try:</b></p>", unsafe_allow_html=True)
 
-    st.markdown("<hr style='border-color:#2C3E50'>", unsafe_allow_html=True)
+    # Row 1: first 5
+    cols_r1 = st.columns(5)
+    for i, (col, q) in enumerate(zip(cols_r1, EXAMPLE_QUESTIONS[:5])):
+        label = q[:26] + "…" if len(q) > 26 else q
+        if col.button(label, key=f"nlq_btn_{i}", use_container_width=True):
+            st.session_state["nlq_active_question"] = q
+            st.rerun()
+
+    # Row 2: next 5
+    cols_r2 = st.columns(5)
+    for i, (col, q) in enumerate(zip(cols_r2, EXAMPLE_QUESTIONS[5:])):
+        label = q[:26] + "…" if len(q) > 26 else q
+        if col.button(label, key=f"nlq_btn_{i+5}", use_container_width=True):
+            st.session_state["nlq_active_question"] = q
+            st.rerun()
+
+    st.markdown("<hr style='border-color:#2C3E50; margin:.6rem 0;'>", unsafe_allow_html=True)
+
+    question = st.session_state["nlq_active_question"]
 
     if not question or question.strip() == "":
         st.markdown("""
-        <div style='background:#1C2833; padding:2rem; border-radius:12px; text-align:center;'>
-            <div style='font-size:3rem'>🇰🇪</div>
-            <h3 style='color:#3498DB; margin:.5rem 0'>Kenya Economic Intelligence</h3>
-            <p style='color:#7F8C8D;'>
-                Type a question above to get instant data-backed answers about Kenya's economy.
-                The engine analyses 6 datasets: macro indicators, 47 counties, M-Pesa data,
-                youth unemployment, sector employment, and regional statistics.
+        <div style='background:#1C2833; padding:1.5rem; border-radius:12px; text-align:center;'>
+            <div style='font-size:2.5rem'>🇰🇪</div>
+            <h3 style='color:#3498DB; margin:.4rem 0 .3rem'>Kenya Economic Intelligence</h3>
+            <p style='color:#7F8C8D; font-size:.9rem; max-width:600px; margin:0 auto;'>
+                Type a question above or click an example button to get instant, data-backed answers
+                about Kenya's macro economy, 47 counties, M-Pesa, youth unemployment, and more.
             </p>
+            <div style='display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center; margin-top:1rem;'>
+                <span style='background:#0E1117; color:#3498DB; padding:.3rem .8rem; border-radius:20px; font-size:.78rem; border:1px solid #2C3E50;'>📊 6 Datasets</span>
+                <span style='background:#0E1117; color:#27AE60; padding:.3rem .8rem; border-radius:20px; font-size:.78rem; border:1px solid #2C3E50;'>🗺️ 47 Counties</span>
+                <span style='background:#0E1117; color:#F39C12; padding:.3rem .8rem; border-radius:20px; font-size:.78rem; border:1px solid #2C3E50;'>🤖 16 Topics</span>
+                <span style='background:#0E1117; color:#8E44AD; padding:.3rem .8rem; border-radius:20px; font-size:.78rem; border:1px solid #2C3E50;'>⚡ Instant Answers</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
         return
@@ -370,9 +419,9 @@ def render(data: dict):
 
     # Answer box
     st.markdown(f"""
-    <div style='background:linear-gradient(135deg,#0B3D6E,#1A5276); padding:1.5rem;
-                border-radius:12px; border-left:4px solid #3498DB; margin-bottom:1rem;'>
-        <p style='color:#AED6F1; font-size:.78rem; margin:0 0 .4rem;'>
+    <div style='background:linear-gradient(135deg,#0B3D6E,#1A5276); padding:1.2rem 1.5rem;
+                border-radius:12px; border-left:4px solid #3498DB; margin-bottom:.8rem;'>
+        <p style='color:#AED6F1; font-size:.75rem; margin:0 0 .3rem;'>
             🎯 Detected topic: <b style='color:white'>{topic.replace("_"," ").title()}</b>
         </p>
         <p style='color:white; font-size:1rem; margin:0; line-height:1.7;'>{result["text"]}</p>
@@ -386,14 +435,22 @@ def render(data: dict):
         with st.expander("📋 View Data Table"):
             st.dataframe(result["df"], use_container_width=True)
 
+    # ── Clear button ──────────────────────────────────────────────────
+    col_clr, _ = st.columns([1, 4])
+    if col_clr.button("🗑️ Clear / New Question", key="nlq_clear"):
+        st.session_state["nlq_active_question"] = ""
+        st.rerun()
+
     # ── History ───────────────────────────────────────────────────────
     if "nlq_history" not in st.session_state:
         st.session_state["nlq_history"] = []
-    if question not in st.session_state["nlq_history"]:
+    if question and question not in st.session_state["nlq_history"]:
         st.session_state["nlq_history"].insert(0, question)
         st.session_state["nlq_history"] = st.session_state["nlq_history"][:8]
 
     if len(st.session_state["nlq_history"]) > 1:
-        with st.expander("📖 Recent Questions"):
+        with st.expander("📖 Recent Questions (click to reuse)"):
             for q in st.session_state["nlq_history"][1:]:
-                st.markdown(f"- {q}")
+                if st.button(f"↩️ {q}", key=f"hist_{hash(q)}", use_container_width=True):
+                    st.session_state["nlq_active_question"] = q
+                    st.rerun()

@@ -68,14 +68,42 @@ def _simulate_policy(mobile_pen: float, edu_spend: float,
 def render(data: dict):
     st.markdown("""
     <div style='background: linear-gradient(135deg, #0B3D0B 0%, #1E8449 50%, #148F77 100%);
-                padding: 2rem; border-radius: 16px; margin-bottom: 2rem;'>
-        <h1 style='color:white; margin:0; font-size:2rem;'>🏛️ Policy Simulator</h1>
-        <p style='color:#A9DFBF; margin-top:.5rem; font-size:1rem;'>
-            Adjust policy levers and instantly see their projected impact on Kenya's
-            poverty, youth unemployment, inequality, GDP, and financial inclusion.
+                padding: .8rem 1.5rem; border-radius: 12px; margin-bottom: 1rem;'>
+        <h2 style='color:white; margin:0; font-size:1.4rem;'>🏛️ Policy Simulator</h2>
+        <p style='color:#A9DFBF; margin:.2rem 0 0; font-size:.85rem;'>
+            Adjust policy levers and instantly see their projected impact on poverty,
+            youth unemployment, inequality, GDP, and financial inclusion
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+    with st.expander("ℹ️ Page Guide & Stakeholder Notes", expanded=False):
+        st.markdown("""
+        **What this page shows:**
+        An interactive linear policy simulation model with 5 adjustable levers, showing how
+        combinations of policy interventions could shift key economic outcomes from the 2023 baseline.
+
+        **The 5 Policy Levers:**
+        | Lever | Baseline | Recommended Target |
+        |-------|----------|-------------------|
+        | 📱 Mobile Penetration (%) | 85.1 | 95+ |
+        | 🎓 Education Spend (% GDP) | 5.5 | 7.0 |
+        | 💰 FDI Inflows (% GDP) | 0.5 | 1.5 |
+        | 🏗️ Infrastructure Score | 50 | 70 |
+        | 🌍 Remittances (% GDP) | 4.2 | 5.5 |
+
+        **How to read the waterfall chart:**
+        Each bar shows the incremental impact of that lever on poverty reduction.
+        Green = poverty falls, red = poverty rises. The final bar shows the new projected poverty rate.
+
+        **For stakeholders:**
+        - 🏛️ *Policy makers*: The simulation shows that combining **mobile expansion + TVET spending**
+          yields the biggest poverty reduction (estimated -6 to -8 pp).
+        - 🌍 *Development partners (World Bank, IMF, AU)*: Use this to model conditionality scenarios
+          for aid programmes and structural adjustment recommendations.
+        - ⚠️ *Model caveat*: This is a simplified linear model. Real-world effects are non-linear
+          and context-dependent. Use as directional guidance, not precise prediction.
+        """)
 
     # ── Policy sliders ────────────────────────────────────────────────
     st.markdown("### 🎛️ Policy Levers")

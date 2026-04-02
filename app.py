@@ -14,6 +14,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import sys
 import os
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -115,25 +116,27 @@ def render_overview(data: dict):
     yu     = data["youth_unemp"]
     county = data["county"]
 
-    # Hero banner
+    # Hero banner — compact
     st.markdown("""
     <div style='background: linear-gradient(135deg, #1B2631 0%, #154360 50%, #0E6655 100%);
-                padding: 3rem 2rem; border-radius: 20px; margin-bottom: 2rem; text-align:center;'>
-        <div style='font-size:4rem'>🇰🇪</div>
-        <h1 style='color:white; font-size:2.8rem; margin:.5rem 0;'>Kenya Economic Pulse</h1>
-        <p style='color:#AED6F1; font-size:1.15rem; max-width:750px; margin:.5rem auto 1.5rem;'>
-            Real-time economic intelligence for Kenya — powered by World Bank data,
-            KNBS Census, CBK mobile money statistics, and machine learning.
-        </p>
-        <div style='display:flex; justify-content:center; gap:.8rem; flex-wrap:wrap;'>
-            <span style='background:rgba(255,255,255,.12); color:white; padding:.4rem 1rem;
-                         border-radius:20px; font-size:.85rem;'>📊 10 Interactive Dashboards</span>
-            <span style='background:rgba(255,255,255,.12); color:white; padding:.4rem 1rem;
-                         border-radius:20px; font-size:.85rem;'>🤖 7 ML Models</span>
-            <span style='background:rgba(255,255,255,.12); color:white; padding:.4rem 1rem;
-                         border-radius:20px; font-size:.85rem;'>🗺️ 47 County Analysis</span>
-            <span style='background:rgba(255,255,255,.12); color:white; padding:.4rem 1rem;
-                         border-radius:20px; font-size:.85rem;'>💬 NL Query Engine</span>
+                padding: 1.2rem 1.8rem; border-radius: 14px; margin-bottom: 1.2rem;
+                display:flex; align-items:center; gap:1rem; flex-wrap:wrap;'>
+        <div style='font-size:2.4rem; line-height:1'>🇰🇪</div>
+        <div style='flex:1; min-width:200px;'>
+            <h1 style='color:white; font-size:1.6rem; margin:0; font-weight:700;'>Kenya Economic Pulse</h1>
+            <p style='color:#AED6F1; font-size:.85rem; margin:.2rem 0 .5rem;'>
+                Real-time economic intelligence — World Bank · KNBS · CBK · Machine Learning
+            </p>
+            <div style='display:flex; gap:.5rem; flex-wrap:wrap;'>
+                <span style='background:rgba(255,255,255,.12); color:white; padding:.25rem .75rem;
+                             border-radius:20px; font-size:.75rem;'>📊 10 Dashboards</span>
+                <span style='background:rgba(255,255,255,.12); color:white; padding:.25rem .75rem;
+                             border-radius:20px; font-size:.75rem;'>🤖 7 ML Models</span>
+                <span style='background:rgba(255,255,255,.12); color:white; padding:.25rem .75rem;
+                             border-radius:20px; font-size:.75rem;'>🗺️ 47 Counties</span>
+                <span style='background:rgba(255,255,255,.12); color:white; padding:.25rem .75rem;
+                             border-radius:20px; font-size:.75rem;'>💬 NLQ Engine</span>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -275,47 +278,115 @@ def render_overview(data: dict):
     )
     st.plotly_chart(fig_yu, use_container_width=True)
 
-    # About project box
+    # ── Report download ──────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 📥 Download Executive Summary Report")
+    rpt_col1, rpt_col2, rpt_col3 = st.columns([2, 2, 3])
+    with rpt_col1:
+        try:
+            from utils.report_generator import generate_executive_summary, REPORTLAB_OK
+            if REPORTLAB_OK:
+                with st.spinner("Generating PDF…"):
+                    pdf_bytes = generate_executive_summary(data)
+                if pdf_bytes:
+                    st.download_button(
+                        label="📄 Download PDF Report",
+                        data=pdf_bytes,
+                        file_name=f"Kenya_Economic_Pulse_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf",
+                        help="Full executive summary with KPIs, findings & policy recommendations"
+                    )
+            else:
+                st.info("Install `reportlab` for PDF reports")
+        except Exception as e:
+            st.warning(f"PDF unavailable: {e}")
+    with rpt_col2:
+        try:
+            from utils.report_generator import generate_html_summary
+            html_report = generate_html_summary(data)
+            st.download_button(
+                label="🌐 Download HTML Report",
+                data=html_report.encode(),
+                file_name=f"Kenya_Economic_Pulse_{datetime.now().strftime('%Y%m%d')}.html",
+                mime="text/html",
+                help="Executive summary as a styled HTML file (open in any browser)"
+            )
+        except Exception as e:
+            st.warning(f"HTML report error: {e}")
+    with rpt_col3:
+        st.markdown("""
+        <div style='background:#1C2833; padding:.7rem 1rem; border-radius:8px;
+                    border-left:3px solid #3498DB; font-size:.82rem; color:#AAB7B8;'>
+            <b style='color:white'>Report includes:</b> KPI dashboard · Key findings ·
+            County snapshot (top/bottom poverty) · 6 policy recommendations · Data sources
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Stakeholder insights ─────────────────────────────────────────
+    st.markdown("---")
     st.markdown("""
-    <div style='background:#1C2833; padding:1.5rem 2rem; border-radius:12px;
-                border:1px solid #2C3E50; margin-top:1rem;'>
-        <h3 style='color:#3498DB; margin-top:0'>🔬 About This Project</h3>
-        <p style='color:#AAB7B8; line-height:1.8;'>
-            <b style='color:white'>Kenya Economic Pulse</b> is an end-to-end data science portfolio
-            combining open-source datasets with machine learning to answer Kenya's most pressing
-            economic questions using Python, Streamlit, and real data.
-        </p>
-        <div style='display:grid; grid-template-columns:1fr 1fr 1fr; gap:.8rem; margin-top:1rem;'>
-            <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #3498DB;'>
-                <b style='color:white'>📊 Economic Indicators</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>20+ macro indicators + 5yr Holt-Winters forecasting</p>
+    <div style='background:#1C2833; padding:1.2rem 1.5rem; border-radius:12px;
+                border:1px solid #2C3E50; margin-bottom:1rem;'>
+        <h3 style='color:#3498DB; margin-top:0; font-size:1.1rem;'>💡 Stakeholder Insights & Dashboard Guide</h3>
+        <div style='display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin-top:.8rem;'>
+            <div style='background:#0E1117; padding:.7rem 1rem; border-radius:8px; border-left:3px solid #3498DB;'>
+                <b style='color:#3498DB; font-size:.85rem;'>🏛️ Policy Makers & Government</b>
+                <p style='color:#AAB7B8; font-size:.8rem; margin:.3rem 0 0; line-height:1.6;'>
+                    Use <b>Policy Simulator</b> to model interventions (mobile expansion, education spend, FDI).
+                    <b>County Inequality Map</b> identifies which counties need emergency support.
+                    <b>Anomaly Detection</b> flags economic shocks for early response.
+                </p>
             </div>
-            <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #27AE60;'>
-                <b style='color:white'>🗺️ County Inequality Map</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>47 counties clustered by KMeans into 5 development tiers</p>
+            <div style='background:#0E1117; padding:.7rem 1rem; border-radius:8px; border-left:3px solid #27AE60;'>
+                <b style='color:#27AE60; font-size:.85rem;'>📈 Investors & Financial Analysts</b>
+                <p style='color:#AAB7B8; font-size:.8rem; margin:.3rem 0 0; line-height:1.6;'>
+                    <b>Economic Indicators</b> page shows GDP, inflation, debt trends with 5-year forecasts.
+                    <b>Economic Forecaster</b> provides ARIMA + Holt-Winters projections with confidence intervals.
+                    <b>M-Pesa Impact</b> quantifies digital finance market opportunity.
+                </p>
             </div>
-            <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #8E44AD;'>
-                <b style='color:white'>💚 M-Pesa Impact Model</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Gradient Boosting R²=0.904 proving mobile money reduces poverty</p>
+            <div style='background:#0E1117; padding:.7rem 1rem; border-radius:8px; border-left:3px solid #F39C12;'>
+                <b style='color:#F39C12; font-size:.85rem;'>🎓 Researchers & Academics</b>
+                <p style='color:#AAB7B8; font-size:.8rem; margin:.3rem 0 0; line-height:1.6;'>
+                    <b>County Comparison</b> enables side-by-side multi-county research across 6 socioeconomic dimensions.
+                    <b>NL Query Engine</b> provides instant data answers. All CSV datasets are freely downloadable
+                    from each page.
+                </p>
             </div>
-            <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #F39C12;'>
-                <b style='color:white'>🔮 Economic Forecaster</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Holt-Winters + ARIMA(2,1,2) with confidence intervals</p>
-            </div>
-            <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #E74C3C;'>
-                <b style='color:white'>🔍 Anomaly Detection</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Isolation Forest detecting economic shocks (2008, 2020…)</p>
-            </div>
-            <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #1ABC9C;'>
-                <b style='color:white'>💬 NL Query Engine</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Ask plain-English questions — get instant data-backed answers</p>
+            <div style='background:#0E1117; padding:.7rem 1rem; border-radius:8px; border-left:3px solid #E74C3C;'>
+                <b style='color:#E74C3C; font-size:.85rem;'>📰 Journalists & Civil Society</b>
+                <p style='color:#AAB7B8; font-size:.8rem; margin:.3rem 0 0; line-height:1.6;'>
+                    <b>Youth Unemployment</b> page shows the 61.5% crisis with scenario modelling.
+                    <b>County Inequality Map</b> exposes the NE Kenya development gap.
+                    Download the <b>Executive Summary PDF</b> above for briefing documents.
+                </p>
             </div>
         </div>
-        <p style='color:#566573; font-size:.82rem; margin:1rem 0 0;'>
-            🛠️ Stack: Python · Streamlit · Scikit-learn · Plotly · Folium · Statsmodels · World Bank API · KNBS · CBK
-        </p>
     </div>
     """, unsafe_allow_html=True)
+
+    # About project box
+    with st.expander("🔬 About This Project & Tech Stack"):
+        st.markdown("""
+        **Kenya Economic Pulse** is an end-to-end data science portfolio combining open-source datasets
+        with machine learning to answer Kenya's most pressing economic questions.
+
+        | Page | What it does |
+        |------|-------------|
+        | 📊 Economic Indicators | 20+ macro indicators · Holt-Winters + ARIMA forecasts |
+        | 🗺️ County Inequality Map | 47 counties · KMeans clustering · Folium choropleth |
+        | 💚 M-Pesa Impact Predictor | GBM regression R²=0.904 · Feature importance |
+        | 🎓 Youth Unemployment | ML forecast · Scenario simulator |
+        | 🔮 Economic Forecaster | Holt-Winters + ARIMA(2,1,2) · Confidence intervals |
+        | ⚖️ County Comparison | Up to 5 counties · Radar + bar charts |
+        | 🏛️ Policy Simulator | 5-lever what-if · Waterfall chart |
+        | 🔍 Anomaly Detection | Isolation Forest · Known economic shocks |
+        | 💬 NL Query Engine | Plain-English questions · 16 topic patterns |
+        | 👨‍💻 Developer / About | Full methodology + data sources |
+
+        **Stack:** Python · Streamlit · Scikit-learn · Plotly · Folium · Statsmodels ·
+        World Bank API · KNBS · CBK · ReportLab
+        """)
 
 
 # ── Sidebar navigation ───────────────────────────────────────────────

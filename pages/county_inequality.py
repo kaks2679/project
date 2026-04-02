@@ -84,13 +84,41 @@ def _make_bubble_map(df: pd.DataFrame, metric: str, cfg: dict) -> folium.Map:
 def render(data: dict):
     st.markdown("""
     <div style='background: linear-gradient(135deg, #1A5276 0%, #154360 100%);
-                padding: 2rem; border-radius: 16px; margin-bottom: 2rem;'>
-        <h1 style='color:white; margin:0; font-size:2rem;'>🗺️ County Inequality & Opportunity Map</h1>
-        <p style='color:#AED6F1; margin-top:.5rem; font-size:1rem;'>
+                padding: .8rem 1.5rem; border-radius: 12px; margin-bottom: 1rem;'>
+        <h2 style='color:white; margin:0; font-size:1.4rem;'>🗺️ County Inequality & Opportunity Map</h2>
+        <p style='color:#AED6F1; margin:.2rem 0 0; font-size:.85rem;'>
             Kenya 47 Counties · KNBS 2019 Census · KMeans Clustering · Interactive Map
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+    with st.expander("ℹ️ Page Guide & Stakeholder Notes", expanded=False):
+        st.markdown("""
+        **What this page shows:**
+        Socioeconomic data for all 47 Kenya counties from the KNBS 2019 Census, visualised as:
+        - An **interactive Folium map** with colour-coded county polygons
+        - A **KMeans clustering** analysis grouping counties into 5 development tiers
+        - **Bubble charts** and **bar rankings** for cross-county comparisons
+
+        **How to read the cluster tiers:**
+        | Tier | Counties | Characteristics |
+        |------|----------|----------------|
+        | 🌿 Emerging | Nairobi, Mombasa, Kisumu | Low poverty, high mobile/electricity |
+        | 📈 Developing | Most Central + Rift Valley | Moderate development |
+        | ⚡ Transitioning | Western, Nyanza | Mixed indicators |
+        | ⚠️ Vulnerable | Coast + parts of Eastern | High unemployment, low HDI |
+        | 🔴 Critical Need | Wajir, Mandera, Turkana | Extreme poverty (>70%), low services |
+
+        **For stakeholders:**
+        - 🏛️ *Government / CRA*: The 5-tier clustering directly maps to equitable revenue allocation
+          priorities. Tier 5 counties need 3–4× per capita transfers to reach baseline services.
+        - 🌍 *NGOs / UNICEF / UNHCR*: NE Kenya cluster shows acute humanitarian need —
+          Wajir, Mandera, Garissa require emergency development programming.
+        - 📈 *County Governors*: Compare your county's HDI, mobile penetration, and electricity
+          access against peers. Use the 'County Comparison' page for detailed benchmarking.
+        - 💡 *Key insight*: Kenya's Gini coefficient (40.8) understates the **spatial inequality**
+          between Nairobi (HDI ~0.75) and Turkana (HDI ~0.35) — a 2× development gap.
+        """)
 
     county_df = data["county"].copy()
 

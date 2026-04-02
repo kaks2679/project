@@ -1,6 +1,6 @@
 """
 Page 6: County Comparison Tool
-Side-by-side socioeconomic comparison of any two Kenya counties.
+Multi-county socioeconomic comparison (up to 5 counties) — radar, heatmap, bar charts.
 Author: Stephen Muema
 """
 
@@ -11,236 +11,318 @@ import plotly.graph_objects as go
 import plotly.express as px
 
 
+# ── Metric definitions ────────────────────────────────────────────────
 METRICS = {
-    "Poverty_Rate":       {"label": "Poverty Rate (%)",       "icon": "🏚️",  "good": "low"},
-    "Unemployment_Rate":  {"label": "Unemployment Rate (%)",  "icon": "👷",  "good": "low"},
-    "Mobile_Penetration": {"label": "Mobile Penetration (%)", "icon": "📱",  "good": "high"},
-    "Electricity_Access": {"label": "Electricity Access (%)", "icon": "⚡",  "good": "high"},
-    "HDI_Score":          {"label": "HDI Score",              "icon": "📚",  "good": "high"},
-    "Population_2019":    {"label": "Population (2019)",      "icon": "👥",  "good": "neutral"},
+    "Poverty_Rate":       {"label": "Poverty Rate (%)",       "icon": "🏚️",  "good": "low",     "unit": "%"},
+    "Unemployment_Rate":  {"label": "Unemployment Rate (%)",  "icon": "👷",  "good": "low",     "unit": "%"},
+    "Mobile_Penetration": {"label": "Mobile Penetration (%)", "icon": "📱",  "good": "high",    "unit": "%"},
+    "Electricity_Access": {"label": "Electricity Access (%)", "icon": "⚡",  "good": "high",    "unit": "%"},
+    "HDI_Score":          {"label": "HDI Score",              "icon": "📚",  "good": "high",    "unit": ""},
+    "Population_2019":    {"label": "Population (2019)",      "icon": "👥",  "good": "neutral", "unit": ""},
 }
+
+# County palette — up to 5 colours
+COUNTY_COLORS = ["#2980B9", "#27AE60", "#E74C3C", "#F39C12", "#8E44AD"]
+COUNTY_FILLS  = [
+    "rgba(41,128,185,.2)",   # blue
+    "rgba(39,174,96,.2)",    # green
+    "rgba(231,76,60,.2)",    # red
+    "rgba(243,156,18,.2)",   # orange
+    "rgba(142,68,173,.2)",   # purple
+]
+
+
+def _normalise(val, col_data, good):
+    mn, mx = float(col_data.min()), float(col_data.max())
+    span   = mx - mn + 1e-9
+    norm   = (val - mn) / span * 100
+    return round(100 - norm if good == "low" else norm, 1)
+
+
+def _fmt(val, metric):
+    if metric == "Population_2019":
+        return f"{int(val):,}"
+    if metric == "HDI_Score":
+        return f"{val:.3f}"
+    return f"{val:.1f}%"
 
 
 def render(data: dict):
+    # ── Compact header ─────────────────────────────────────────────────
     st.markdown("""
     <div style='background: linear-gradient(135deg, #1B2631 0%, #21618C 100%);
-                padding: 2rem; border-radius: 16px; margin-bottom: 2rem;'>
-        <h1 style='color:white; margin:0; font-size:2rem;'>⚖️ County Comparison Tool</h1>
-        <p style='color:#AED6F1; margin-top:.5rem; font-size:1rem;'>
-            Compare any two Kenya counties side-by-side across all socioeconomic dimensions
+                padding: .8rem 1.5rem; border-radius: 12px; margin-bottom: 1rem;'>
+        <h2 style='color:white; margin:0; font-size:1.4rem;'>⚖️ County Comparison Tool</h2>
+        <p style='color:#AED6F1; margin:.2rem 0 0; font-size:.85rem;'>
+            Compare up to 5 Kenya counties side-by-side across all socioeconomic dimensions
         </p>
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Stakeholder context ───────────────────────────────────────────
+    with st.expander("ℹ️ About this page & how to read the results", expanded=False):
+        st.markdown("""
+        **Purpose:** Select 2–5 counties to compare their socioeconomic performance across poverty,
+        unemployment, mobile penetration, electricity access, and Human Development Index (HDI).
+
+        **How to interpret results:**
+        - **Radar chart** — each axis is normalised 0–100 where 100 = *best* performance.
+          A larger polygon = stronger overall development.
+        - **Heatmap** — raw values at a glance; red = worst, green = best in each row.
+        - **Bar chart** — grouped bars for direct metric-by-metric comparison.
+        - **Ranking table** — all 47 counties ranked; your selections highlighted.
+
+        **Stakeholder notes:**
+        - 🏛️ *Policy makers*: Compare a target county against national leaders to identify gaps.
+        - 📈 *Investors*: High HDI + growing mobile penetration = investable market.
+        - 🎓 *Researchers*: Use the ranking table & download CSV for statistical analysis.
+        """)
+
     county_df = data["county"].copy()
-    counties  = sorted(county_df["County"].unique().tolist())
 
-    # ── County selector ───────────────────────────────────────────────
-    col_a, col_b = st.columns(2)
-    with col_a:
-        county_a = st.selectbox("🔵 Select County A", counties,
-                                index=counties.index("Nairobi") if "Nairobi" in counties else 0,
-                                key="cmp_a")
-    with col_b:
-        county_b = st.selectbox("🔴 Select County B", counties,
-                                index=counties.index("Turkana") if "Turkana" in counties else 1,
-                                key="cmp_b")
+    # ── Add Cluster_Label if missing ──────────────────────────────────
+    if "Cluster_Label" not in county_df.columns:
+        county_df["Cluster_Label"] = "N/A"
 
-    if county_a == county_b:
-        st.warning("Please select two different counties to compare.")
-        return
+    counties_list = sorted(county_df["County"].unique().tolist())
 
-    row_a = county_df[county_df["County"] == county_a].iloc[0]
-    row_b = county_df[county_df["County"] == county_b].iloc[0]
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── Side-by-side KPI cards ────────────────────────────────────────
-    st.markdown("### 📊 Head-to-Head Comparison")
-    header_a, header_b = st.columns(2)
-    with header_a:
+    # ── County selector (up to 5) ─────────────────────────────────────
+    st.markdown("#### 🗂️ Select Counties to Compare (2 – 5)")
+    col_s1, col_s2 = st.columns([3, 2])
+    with col_s1:
+        selected = st.multiselect(
+            "Choose counties:",
+            counties_list,
+            default=["Nairobi", "Turkana"] if "Nairobi" in counties_list else counties_list[:2],
+            max_selections=5,
+            key="cmp_multi"
+        )
+    with col_s2:
+        if len(selected) < 2:
+            st.warning("⚠️ Select at least 2 counties to enable comparison.")
+            return
+        if len(selected) > 5:
+            st.error("Max 5 counties. Please remove some.")
+            return
         st.markdown(f"""
-        <div style='background:linear-gradient(135deg,#1B4F72,#2980B9);
-                    padding:1rem; border-radius:10px; text-align:center;'>
-            <h2 style='color:white; margin:0'>{county_a}</h2>
-            <p style='color:#AED6F1; margin:.3rem 0 0; font-size:.9rem'>{row_a['Region']} Region · Cluster: {row_a.get('Cluster_Label','N/A')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with header_b:
-        st.markdown(f"""
-        <div style='background:linear-gradient(135deg,#641E16,#E74C3C);
-                    padding:1rem; border-radius:10px; text-align:center;'>
-            <h2 style='color:white; margin:0'>{county_b}</h2>
-            <p style='color:#FADBD8; margin:.3rem 0 0; font-size:.9rem'>{row_b['Region']} Region · Cluster: {row_b.get('Cluster_Label','N/A')}</p>
+        <div style='background:#1C2833; padding:.7rem 1rem; border-radius:8px;
+                    border-left:3px solid #3498DB; font-size:.82rem; color:#AAB7B8;'>
+            Comparing <b style='color:white'>{len(selected)}</b> counties across
+            <b style='color:white'>6</b> socioeconomic metrics
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    rows = {c: county_df[county_df["County"] == c].iloc[0] for c in selected}
 
-    for metric, meta in METRICS.items():
-        if metric not in county_df.columns:
-            continue
-        val_a = row_a[metric]
-        val_b = row_b[metric]
+    # ════════════════════════════════════════════════════════════════
+    # SECTION 1 — COUNTY HEADER CARDS
+    # ════════════════════════════════════════════════════════════════
+    st.markdown("---")
+    st.markdown("#### 🏷️ Selected Counties")
+    hdr_cols = st.columns(len(selected))
+    for i, (c, col) in enumerate(zip(selected, hdr_cols)):
+        row = rows[c]
+        col.markdown(f"""
+        <div style='background:linear-gradient(135deg,{COUNTY_COLORS[i]}22,{COUNTY_COLORS[i]}44);
+                    padding:.7rem; border-radius:10px; text-align:center;
+                    border:1px solid {COUNTY_COLORS[i]};'>
+            <div style='color:{COUNTY_COLORS[i]}; font-size:1.1rem; font-weight:bold'>{c}</div>
+            <div style='color:#AAB7B8; font-size:.72rem;'>{row["Region"]} Region</div>
+            <div style='color:#566573; font-size:.7rem; margin-top:.2rem;'>HDI {row.get("HDI_Score",0):.3f}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        if metric == "Population_2019":
-            fmt_a = f"{int(val_a):,}"
-            fmt_b = f"{int(val_b):,}"
-        elif metric == "HDI_Score":
-            fmt_a = f"{val_a:.3f}"
-            fmt_b = f"{val_b:.3f}"
-        else:
-            fmt_a = f"{val_a:.1f}%"
-            fmt_b = f"{val_b:.1f}%"
+    # ════════════════════════════════════════════════════════════════
+    # SECTION 2 — METRIC COMPARISON HEATMAP + RADAR (2-col layout)
+    # ════════════════════════════════════════════════════════════════
+    st.markdown("---")
+    col_radar, col_heat = st.columns([1, 1])
 
-        # Determine winner
-        if meta["good"] == "high":
-            winner = "A" if val_a > val_b else "B"
-        elif meta["good"] == "low":
-            winner = "A" if val_a < val_b else "B"
-        else:
-            winner = "tie"
+    # ── Radar chart ──────────────────────────────────────────────────
+    radar_keys   = ["Poverty_Rate", "Unemployment_Rate", "Mobile_Penetration",
+                    "Electricity_Access", "HDI_Score"]
+    radar_labels = ["Poverty\n(inv.)", "Unemployment\n(inv.)", "Mobile\nPenetration",
+                    "Electricity\nAccess", "HDI Score"]
 
-        col1, col2, col3 = st.columns([2, 1, 2])
-        with col1:
-            bg_a = "#1A5276" if winner == "A" else "#1C2833"
-            border_a = "#27AE60" if winner == "A" else "#2C3E50"
-            st.markdown(f"""
-            <div style='background:{bg_a}; padding:.8rem 1rem; border-radius:8px;
-                        border:1px solid {border_a}; text-align:center;'>
-                <span style='color:#AAB7B8; font-size:.8rem'>{meta["icon"]} {meta["label"]}</span><br>
-                <span style='color:{"#27AE60" if winner=="A" else "white"}; font-size:1.4rem; font-weight:bold'>{fmt_a}</span>
-                {"<span style='color:#27AE60; font-size:.7rem;'> ✓ Better</span>" if winner=="A" else ""}
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div style='text-align:center; padding:.8rem 0;'>
-                <span style='color:#566573; font-size:1.5rem'>⚡</span><br>
-                <span style='color:#AAB7B8; font-size:.75rem'>vs</span>
-            </div>
-            """, unsafe_allow_html=True)
-        with col3:
-            bg_b = "#7B241C" if winner == "B" else "#1C2833"
-            border_b = "#27AE60" if winner == "B" else "#2C3E50"
-            st.markdown(f"""
-            <div style='background:{bg_b}; padding:.8rem 1rem; border-radius:8px;
-                        border:1px solid {border_b}; text-align:center;'>
-                <span style='color:#AAB7B8; font-size:.8rem'>{meta["icon"]} {meta["label"]}</span><br>
-                <span style='color:{"#27AE60" if winner=="B" else "white"}; font-size:1.4rem; font-weight:bold'>{fmt_b}</span>
-                {"<span style='color:#27AE60; font-size:.7rem;'> ✓ Better</span>" if winner=="B" else ""}
-            </div>
-            """, unsafe_allow_html=True)
+    with col_radar:
+        st.markdown("##### 🕸️ Development Radar (0–100, higher = better)")
+        fig_radar = go.Figure()
+        for i, c in enumerate(selected):
+            row   = rows[c]
+            vals  = [_normalise(float(row[m]), county_df[m], METRICS[m]["good"]) for m in radar_keys]
+            vals_c = vals + [vals[0]]
+            lbls_c = radar_labels + [radar_labels[0]]
+            fig_radar.add_trace(go.Scatterpolar(
+                r=vals_c, theta=lbls_c,
+                fill="toself", name=c,
+                line=dict(color=COUNTY_COLORS[i], width=2),
+                fillcolor=COUNTY_FILLS[i]
+            ))
+        fig_radar.update_layout(
+            polar=dict(
+                bgcolor="#1C2833",
+                radialaxis=dict(visible=True, range=[0, 100], gridcolor="#2C3E50",
+                                tickfont=dict(color="#AAB7B8", size=8), ticksuffix=" pts"),
+                angularaxis=dict(gridcolor="#2C3E50", tickfont=dict(color="white", size=9))
+            ),
+            paper_bgcolor="#0E1117",
+            font=dict(color="white"),
+            legend=dict(bgcolor="#1C2833", font=dict(color="white", size=10),
+                        orientation="h", y=-0.15, x=0.5, xanchor="center"),
+            height=380,
+            margin=dict(l=20, r=20, t=20, b=60)
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # ── Metric heatmap ────────────────────────────────────────────────
+    with col_heat:
+        st.markdown("##### 🌡️ Metric Heatmap (raw values)")
+        hm_metrics = [m for m in METRICS if m in county_df.columns]
+        hm_labels  = [METRICS[m]["label"] for m in hm_metrics]
+        hm_data    = np.array([
+            [float(rows[c][m]) if m != "Population_2019"
+             else float(rows[c][m]) / 1e6   # convert to millions for readability
+             for m in hm_metrics]
+            for c in selected
+        ])
+        # Normalise each metric 0-1 for colour (direction-aware)
+        hm_norm = np.zeros_like(hm_data)
+        for j, m in enumerate(hm_metrics):
+            col_vals = county_df[m].values.astype(float)
+            mn, mx   = col_vals.min(), col_vals.max()
+            span     = mx - mn + 1e-9
+            norm     = (hm_data[:, j] - mn) / span
+            hm_norm[:, j] = norm if METRICS[m]["good"] == "high" else 1 - norm
 
-    # ── Radar chart ───────────────────────────────────────────────────
-    st.markdown("### 🕸️ Radar Chart: Multi-Dimensional Comparison")
-    radar_metrics = ["Poverty_Rate", "Unemployment_Rate", "Mobile_Penetration",
-                     "Electricity_Access", "HDI_Score"]
-    radar_labels  = [METRICS[m]["label"].replace(" (%)", "").replace(" (2019)", "") for m in radar_metrics]
+        text_matrix = [
+            [_fmt(float(rows[c][m]), m) + (" M" if m == "Population_2019" else "")
+             for m in hm_metrics]
+            for c in selected
+        ]
+        fig_hm = go.Figure(go.Heatmap(
+            z=hm_norm,
+            x=hm_labels,
+            y=selected,
+            text=text_matrix,
+            texttemplate="%{text}",
+            colorscale="RdYlGn",
+            showscale=False,
+            hovertemplate="<b>%{y}</b> — %{x}<br>Value: %{text}<extra></extra>"
+        ))
+        fig_hm.update_layout(
+            plot_bgcolor="#0E1117", paper_bgcolor="#0E1117",
+            font=dict(color="white", size=10),
+            height=380,
+            xaxis=dict(tickangle=-25, side="bottom", tickfont=dict(size=9)),
+            yaxis=dict(tickfont=dict(size=10)),
+            margin=dict(l=10, r=10, t=10, b=60)
+        )
+        st.plotly_chart(fig_hm, use_container_width=True)
 
-    def normalise(series_vals, metric_name):
-        """Normalise 0–100 for radar; invert low-is-good metrics."""
-        col_data = county_df[metric_name]
-        mn, mx = col_data.min(), col_data.max()
-        norm = [(v - mn) / (mx - mn + 1e-9) * 100 for v in series_vals]
-        if METRICS[metric_name]["good"] == "low":
-            norm = [100 - v for v in norm]
-        return norm
+    # ════════════════════════════════════════════════════════════════
+    # SECTION 3 — GROUPED BAR CHART
+    # ════════════════════════════════════════════════════════════════
+    st.markdown("---")
+    st.markdown("##### 📊 Grouped Bar: Metric-by-Metric")
+    bar_metrics = [m for m in METRICS if m != "Population_2019" and m in county_df.columns]
+    bar_labels  = [METRICS[m]["label"] for m in bar_metrics]
 
-    vals_a = normalise([row_a[m] for m in radar_metrics], "Poverty_Rate")
-    vals_b = normalise([row_b[m] for m in radar_metrics], "Poverty_Rate")
-
-    # Re-normalise each metric individually
-    vals_a = []
-    vals_b = []
-    for m in radar_metrics:
-        col_data = county_df[m]
-        mn, mx = float(col_data.min()), float(col_data.max())
-        span = mx - mn + 1e-9
-        na = (float(row_a[m]) - mn) / span * 100
-        nb = (float(row_b[m]) - mn) / span * 100
-        if METRICS[m]["good"] == "low":
-            na, nb = 100 - na, 100 - nb
-        vals_a.append(round(na, 1))
-        vals_b.append(round(nb, 1))
-
-    fig_radar = go.Figure()
-    fig_radar.add_trace(go.Scatterpolar(
-        r=vals_a + [vals_a[0]],
-        theta=radar_labels + [radar_labels[0]],
-        fill="toself",
-        name=county_a,
-        line=dict(color="#2980B9", width=2),
-        fillcolor="rgba(41,128,185,0.2)"
-    ))
-    fig_radar.add_trace(go.Scatterpolar(
-        r=vals_b + [vals_b[0]],
-        theta=radar_labels + [radar_labels[0]],
-        fill="toself",
-        name=county_b,
-        line=dict(color="#E74C3C", width=2),
-        fillcolor="rgba(231,76,60,0.2)"
-    ))
-    fig_radar.update_layout(
-        polar=dict(
-            bgcolor="#1C2833",
-            radialaxis=dict(visible=True, range=[0, 100], gridcolor="#2C3E50",
-                            tickfont=dict(color="#AAB7B8"), ticksuffix=" pts"),
-            angularaxis=dict(gridcolor="#2C3E50", tickfont=dict(color="white"))
-        ),
-        paper_bgcolor="#0E1117",
-        font=dict(color="white"),
-        legend=dict(bgcolor="#1C2833", font=dict(color="white")),
-        height=450,
-        title=dict(text=f"Development Score Radar: {county_a} vs {county_b}",
-                   font=dict(color="white", size=16))
-    )
-    st.plotly_chart(fig_radar, use_container_width=True)
-
-    # ── Bar chart comparison ──────────────────────────────────────────
-    st.markdown("### 📊 Bar Chart Comparison")
-    bar_metrics = [m for m in radar_metrics if m != "Population_2019"]
-    bar_df = pd.DataFrame({
-        "Metric": [METRICS[m]["label"] for m in bar_metrics] * 2,
-        "Value":  [float(row_a[m]) for m in bar_metrics] + [float(row_b[m]) for m in bar_metrics],
-        "County": [county_a] * len(bar_metrics) + [county_b] * len(bar_metrics)
-    })
-    fig_bar = px.bar(
-        bar_df, x="Metric", y="Value", color="County", barmode="group",
-        color_discrete_map={county_a: "#2980B9", county_b: "#E74C3C"},
-        labels={"Value": "Value", "Metric": "Indicator"}
-    )
+    fig_bar = go.Figure()
+    for i, c in enumerate(selected):
+        vals = [float(rows[c][m]) for m in bar_metrics]
+        fig_bar.add_trace(go.Bar(
+            name=c, x=bar_labels, y=vals,
+            marker_color=COUNTY_COLORS[i],
+            opacity=0.85,
+            text=[f"{v:.1f}" for v in vals],
+            textposition="outside",
+            textfont=dict(size=9)
+        ))
     fig_bar.update_layout(
+        barmode="group",
         plot_bgcolor="#0E1117", paper_bgcolor="#0E1117",
-        font=dict(color="white"), height=380,
-        legend=dict(bgcolor="#1C2833", font=dict(color="white")),
-        xaxis=dict(gridcolor="#2C3E50", tickangle=-15),
-        yaxis=dict(gridcolor="#2C3E50"),
-        margin=dict(l=10, r=10, t=20, b=10)
+        font=dict(color="white"), height=360,
+        legend=dict(bgcolor="#1C2833", font=dict(color="white", size=10),
+                    orientation="h", y=1.1, x=0),
+        xaxis=dict(gridcolor="#2C3E50", tickangle=-15, tickfont=dict(size=9)),
+        yaxis=dict(gridcolor="#2C3E50", title="Value"),
+        margin=dict(l=10, r=10, t=50, b=30)
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 
-    # ── All counties ranked by metric ─────────────────────────────────
-    st.markdown("### 🏆 All Counties Ranked")
-    rank_by = st.selectbox("Rank by:", [METRICS[m]["label"] for m in METRICS if m in county_df.columns],
-                           key="rank_metric")
-    # reverse lookup
-    col_name = next((k for k, v in METRICS.items() if v["label"] == rank_by), None)
-    if col_name:
-        ranked = county_df[["County", "Region", col_name]].sort_values(
-            col_name, ascending=(METRICS[col_name]["good"] == "low")
-        ).reset_index(drop=True)
-        ranked.index += 1
-        ranked.columns = ["County", "Region", rank_by]
+    # ════════════════════════════════════════════════════════════════
+    # SECTION 4 — SCORE SUMMARY TABLE
+    # ════════════════════════════════════════════════════════════════
+    st.markdown("---")
+    st.markdown("##### 🏆 Overall Development Score & County Rankings")
 
-        # Highlight selected counties
-        def highlight_selected(row):
-            if row["County"] == county_a:
-                return ["background-color: #1A5276"] * len(row)
-            if row["County"] == county_b:
-                return ["background-color: #7B241C"] * len(row)
-            return [""] * len(row)
+    # Compute composite score (avg of normalised metrics, excluding population)
+    score_metrics = [m for m in METRICS if m != "Population_2019" and m in county_df.columns]
+    score_data = {}
+    for c in selected:
+        score = np.mean([_normalise(float(rows[c][m]), county_df[m], METRICS[m]["good"]) for m in score_metrics])
+        score_data[c] = round(score, 1)
 
-        st.dataframe(ranked.style.apply(highlight_selected, axis=1), use_container_width=True)
+    score_df = pd.DataFrame([
+        {"County": c,
+         "Region": rows[c]["Region"],
+         "Dev. Score /100": score_data[c],
+         **{METRICS[m]["label"]: _fmt(float(rows[c][m]), m) for m in score_metrics}}
+        for c in sorted(score_data, key=lambda x: score_data[x], reverse=True)
+    ])
+    st.dataframe(score_df.set_index("County"), use_container_width=True)
+
+    # ── Insight box ────────────────────────────────────────────────────
+    best_c  = max(score_data, key=score_data.get)
+    worst_c = min(score_data, key=score_data.get)
+    diff    = score_data[best_c] - score_data[worst_c]
+    st.markdown(f"""
+    <div style='background:linear-gradient(135deg,#0B3D6E,#1A5276); padding:1rem 1.5rem;
+                border-radius:10px; border-left:4px solid #3498DB; margin-top:.5rem;'>
+        <p style='color:#AED6F1; font-size:.78rem; margin:0 0 .3rem;'>🔍 Key Insight</p>
+        <p style='color:white; font-size:.92rem; margin:0; line-height:1.7;'>
+            Among selected counties, <b>{best_c}</b> leads with a composite score of
+            <b>{score_data[best_c]:.0f}/100</b> while <b>{worst_c}</b> lags at
+            <b>{score_data[worst_c]:.0f}/100</b> — a gap of <b>{diff:.0f} points</b>.
+            This reflects Kenya's significant <b>intra-national development inequality</b>.
+            Targeted interventions in the lowest-scoring counties can dramatically shift these numbers.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ════════════════════════════════════════════════════════════════
+    # SECTION 5 — ALL COUNTIES RANKED (collapsible)
+    # ════════════════════════════════════════════════════════════════
+    with st.expander("📋 All 47 Counties Ranked"):
+        rank_by = st.selectbox(
+            "Rank by:",
+            [METRICS[m]["label"] for m in METRICS if m in county_df.columns],
+            key="rank_metric_v2"
+        )
+        col_name = next((k for k, v in METRICS.items() if v["label"] == rank_by), None)
+        if col_name:
+            ascending = (METRICS[col_name]["good"] == "low")
+            ranked = county_df[["County", "Region", col_name]].sort_values(
+                col_name, ascending=ascending
+            ).reset_index(drop=True)
+            ranked.index += 1
+            ranked.columns = ["County", "Region", rank_by]
+
+            def _highlight(row):
+                if row["County"] in selected:
+                    idx = selected.index(row["County"])
+                    c   = COUNTY_COLORS[idx]
+                    # Convert hex to rgb for lighter bg
+                    return [f"background-color: {c}33; border-left: 3px solid {c}"] * len(row)
+                return [""] * len(row)
+
+            st.dataframe(ranked.style.apply(_highlight, axis=1), use_container_width=True)
+
+        # Download
+        dl_df = county_df[["County","Region"] + list(METRICS.keys())].copy()
+        st.download_button(
+            "⬇️ Download All County Data (CSV)",
+            dl_df.to_csv(index=False).encode(),
+            "kenya_county_comparison.csv",
+            "text/csv"
+        )
