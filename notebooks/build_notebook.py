@@ -1,770 +1,823 @@
 """
-Builds the Kenya Economic Pulse Jupyter notebook from scratch.
-Run: python build_notebook.py  (from the notebooks/ directory)
+Kenya Economic Pulse — Jupyter Notebook Builder v2.2
+Builds a clean, executable notebook with full DS pipeline.
 Author: Stephen Muema
 """
+
 import nbformat
 from nbformat.v4 import new_notebook, new_markdown_cell, new_code_cell
-import os
+from textwrap import dedent
 
-nb = new_notebook()
-nb.metadata = {
-    "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
-    "language_info": {"name": "python", "version": "3.10.0"},
-}
+cells = []
 
-C = []
+# ── CELL 0: Title ────────────────────────────────────────────────────
+cells.append(new_markdown_cell(dedent("""
+# 🇰🇪 Kenya Economic Pulse — Data Science Pipeline
 
-C.append(new_markdown_cell("""# Kenya Economic Pulse – Data Science Pipeline
-## From Raw Data to Predictive Insights
-
-**Author:** Stephen Muema  
-**Date:** April 2026  
-**Repository:** https://github.com/kaks2679/project  
-**Portfolio:** https://muemastephenportfolio.netlify.app  
-**Email:** musyokas753@gmail.com  
+**Author:** Stephen Muema | Data Scientist & ML Engineer
+**Portfolio:** https://muemastephenportfolio.netlify.app/
+**GitHub:** https://github.com/kaks2679/project
+**Date:** April 2026 | **Version:** 2.2.0
 
 ---
 
-### About This Notebook
+## Project Overview
 
-Complete data science workflow behind the Kenya Economic Pulse dashboard:
+End-to-end data science pipeline analysing Kenya's economy across six datasets:
 
-1. **Data Understanding** – Problem statement, objectives, data source links  
-2. **Data Acquisition** – Load 6 Kenya datasets from CSV / World Bank API  
-3. **Data Cleaning** – Missing values, outlier detection, feature engineering  
-4. **Exploratory Data Analysis (EDA)** – Macro trends, M-Pesa revolution, county inequality, correlations  
-5. **Machine Learning** – Poverty regression (R²=0.904), county clustering, forecasting, youth unemployment  
-6. **Policy Simulation** – What-If scenario analysis  
-7. **Conclusions** – Key findings, policy recommendations  
-"""))
+| Dataset | Source | Rows × Cols |
+|---------|--------|-------------|
+| Macro Indicators | World Bank API | 24 × 16 |
+| County Data | KNBS 2019 Census | 47 × 12 |
+| Mobile Money | CBK Annual Reports | 17 × 8 |
+| Youth Unemployment | ILO / World Bank | 19 × 8 |
+| Sector Employment | KNBS Labour Survey | 14 × 10 |
+| Regional Statistics | KNBS Aggregated | 8 × 8 |
 
-C.append(new_markdown_cell("""## 1. Data Understanding
+**Core research questions:**
+1. Does M-Pesa mobile money reduce poverty? *(Regression — GBM, RF, Ridge)*
+2. Can Kenya's 47 counties be clustered by development level? *(KMeans k=5)*
+3. What macro policies reduce youth unemployment? *(GBM + Policy Simulator)*
+""").strip()))
 
-### 1.1 Problem Statement
+# ── CELL 1: Section header ───────────────────────────────────────────
+cells.append(new_markdown_cell("## 1. Environment Setup & Dependencies"))
 
-Kenya faces a **paradox of growth and inequality**:
+# ── CELL 2: Install ──────────────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+import subprocess, sys
+pkgs = ["pandas","numpy","matplotlib","seaborn","scikit-learn",
+        "statsmodels","plotly","wbgapi","requests","nbformat"]
+for p in pkgs:
+    subprocess.run([sys.executable,"-m","pip","install","-q",p], check=False)
+print("All packages ready")
+''').strip()))
 
-- GDP growth has averaged **~5.2% per year** over 20 years
-- Yet **33.5% of Kenyans remain below the poverty line** ([World Bank 2023](https://data.worldbank.org/country/KE))
-- **Youth unemployment: 61.5%** – 4.5× the global average ([ILO 2023](https://ilostat.ilo.org/data/))
-- **Gini coefficient: 40.8** — significant income inequality
-- **North Eastern counties (Wajir, Mandera, Turkana)**: 76–82% poverty vs Nairobi's 17%
-
-Kenya pioneered **M-Pesa mobile money** (2007), achieving:
-- 41M+ registered users · 85.1% financial inclusion · KES 8.1 trillion/year in transactions
-
-### 1.2 Objectives
-
-| # | Objective | Method |
-|---|-----------|--------|
-| 1 | Quantify mobile money impact on poverty | Regression (GBM, RF, Ridge) |
-| 2 | Identify youth unemployment drivers | Feature importance |
-| 3 | Cluster 50 counties into development tiers | KMeans |
-| 4 | Forecast macro indicators to 2028 | Holt-Winters + ARIMA |
-| 5 | Simulate policy impact | What-If scenario analysis |
-
-### 1.3 Data Sources
-
-| Dataset | Source | URL |
-|---------|--------|-----|
-| GDP, Inflation, Poverty | World Bank | [data.worldbank.org/country/KE](https://data.worldbank.org/country/KE) |
-| County poverty & population | KNBS 2019 Census | [knbs.or.ke](https://www.knbs.or.ke/?p=5621) |
-| M-Pesa statistics | Central Bank of Kenya | [centralbank.go.ke](https://www.centralbank.go.ke/financial-sector-statistics/) |
-| Youth unemployment | ILO ILOSTAT | [ilostat.ilo.org](https://ilostat.ilo.org/data/) |
-| Financial inclusion | FinAccess 2021 | [fsdkenya.org](https://fsdkenya.org/dataset/finaccess/) |
-| Sector employment | KNBS Economic Survey | [knbs.or.ke](https://www.knbs.or.ke/) |
-"""))
-
-C.append(new_markdown_cell("## 2. Environment Setup & Data Acquisition"))
-
-C.append(new_code_cell("""\
-import sys, os, warnings
-warnings.filterwarnings('ignore')
-
+# ── CELL 3: Imports ──────────────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+import os, sys, warnings
+import numpy  as np
 import pandas as pd
-import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import seaborn as sns
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import Ridge
-from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
-from sklearn.metrics import r2_score, mean_absolute_error
-from sklearn.model_selection import train_test_split, cross_val_score
-
+from sklearn.cluster         import KMeans
+from sklearn.preprocessing   import StandardScaler
+from sklearn.linear_model    import Ridge
+from sklearn.ensemble        import (GradientBoostingRegressor,
+                                     RandomForestRegressor,
+                                     IsolationForest)
+from sklearn.model_selection import train_test_split
+from sklearn.metrics         import r2_score, mean_absolute_error
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from statsmodels.tsa.arima.model import ARIMA
-from statsmodels.tsa.stattools   import adfuller
+from statsmodels.tsa.arima.model  import ARIMA
 
-plt.style.use('seaborn-v0_8-darkgrid')
-sys.path.insert(0, os.path.abspath('..'))
+warnings.filterwarnings("ignore")
 
-print(f"Python:      {sys.version.split()[0]}")
-print(f"Pandas:      {pd.__version__}")
-print(f"NumPy:       {np.__version__}")
-print(f"Matplotlib:  {matplotlib.__version__}")
-print("All libraries loaded successfully!")
-"""))
+plt.rcParams.update({
+    "figure.facecolor": "#0E1117",
+    "axes.facecolor":   "#1C2833",
+    "axes.edgecolor":   "#2C3E50",
+    "axes.labelcolor":  "white",
+    "xtick.color":      "#AAB7B8",
+    "ytick.color":      "#AAB7B8",
+    "text.color":       "white",
+    "grid.color":       "#2C3E50",
+    "grid.linewidth":   0.5,
+    "legend.facecolor": "#1C2833",
+    "legend.edgecolor": "#2C3E50",
+    "font.size":        11,
+})
+print("All imports successful")
+print(f"  pandas {pd.__version__}  |  numpy {np.__version__}")
+''').strip()))
 
-C.append(new_code_cell("""\
-# Locate data directory (works from notebooks/ or project root)
-DATA_DIR = os.path.abspath(os.path.join('..', 'data'))
-if not os.path.exists(DATA_DIR):
-    DATA_DIR = os.path.abspath('data')
+# ── CELL 4: Section header ───────────────────────────────────────────
+cells.append(new_markdown_cell("## 2. Data Loading"))
 
-print(f"Data directory: {DATA_DIR}  (exists: {os.path.exists(DATA_DIR)})")
+# ── CELL 5: Load CSVs ────────────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+DATA_DIR = None
+for candidate in ["../data", "./data", "data"]:
+    if os.path.isdir(candidate):
+        DATA_DIR = candidate
+        break
 
-csv_files = {
-    'macro':        'kenya_macro_indicators.csv',
-    'county':       'kenya_county_data.csv',
-    'mobile_money': 'kenya_mobile_money.csv',
-    'youth':        'kenya_youth_unemployment.csv',
-    'sector':       'kenya_sector_employment.csv',
-    'regional':     'kenya_regional_stats.csv',
+if DATA_DIR is None:
+    raise FileNotFoundError("data/ directory not found.")
+
+print(f"Using data directory: {DATA_DIR}")
+
+macro  = pd.read_csv(f"{DATA_DIR}/kenya_macro_indicators.csv")
+county = pd.read_csv(f"{DATA_DIR}/kenya_county_data.csv")
+mobile = pd.read_csv(f"{DATA_DIR}/kenya_mobile_money.csv")
+youth  = pd.read_csv(f"{DATA_DIR}/kenya_youth_unemployment.csv")
+sector = pd.read_csv(f"{DATA_DIR}/kenya_sector_employment.csv")
+region = pd.read_csv(f"{DATA_DIR}/kenya_regional_stats.csv")
+
+datasets = {
+    "Macro Indicators":   macro,
+    "County Data":        county,
+    "Mobile Money":       mobile,
+    "Youth Unemployment": youth,
+    "Sector Employment":  sector,
+    "Regional Stats":     region,
 }
 
-datasets = {}
-for name, fname in csv_files.items():
-    fpath = os.path.join(DATA_DIR, fname)
-    if os.path.exists(fpath):
-        datasets[name] = pd.read_csv(fpath)
-        df = datasets[name]
-        print(f"  Loaded  {name:15s}  {df.shape[0]:3d} rows x {df.shape[1]:2d} cols  "
-              f"  nulls={df.isnull().sum().sum()}")
-    else:
-        print(f"  MISSING {fpath}")
+print("\\nDataset Summary:")
+print(f"  {'Dataset':<25} {'Rows':>5} {'Cols':>5}")
+print("  " + "-" * 38)
+for name, df in datasets.items():
+    print(f"  {name:<25} {df.shape[0]:>5} {df.shape[1]:>5}")
+''').strip()))
 
-print(f"\\nTotal datasets: {len(datasets)}")
-"""))
+# ── CELL 6: Quick overview ───────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+print("Macro Indicators - first 3 rows:")
+print(macro.head(3).to_string())
+print("\\nCounty Data - first 3 rows:")
+print(county.head(3).to_string())
+print("\\nMobile Money - first 3 rows:")
+print(mobile.head(3).to_string())
+''').strip()))
 
-C.append(new_markdown_cell("## 3. Data Cleaning & Preparation\n\n### 3.1 Missing Value Analysis"))
+# ── CELL 7: Section header ───────────────────────────────────────────
+cells.append(new_markdown_cell("## 3. Data Cleaning & Validation"))
 
-C.append(new_code_cell("""\
-fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-fig.suptitle('Missing Value Analysis – All Datasets', fontsize=14, fontweight='bold')
+# ── CELL 8: Missing values ───────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+print("=== Missing Value Summary ===")
+for name, df in datasets.items():
+    n_missing = df.isnull().sum().sum()
+    pct = n_missing / df.size * 100
+    print(f"  {name:<25}: {n_missing:>4} missing ({pct:.1f}%)")
 
-for ax, (name, df) in zip(axes.flat, datasets.items()):
-    missing = df.isnull().sum() / len(df) * 100
-    missing = missing[missing > 0]
-    if missing.empty:
-        ax.set_facecolor('#f0fff0')
-        ax.text(0.5, 0.5, '0% Missing\\nData Complete', ha='center', va='center',
-                transform=ax.transAxes, fontsize=12, color='green',
-                bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.5))
-        ax.set_title(f'{name.upper()}', fontsize=10)
-        ax.set_xticks([]); ax.set_yticks([])
-    else:
-        missing.sort_values().plot(kind='barh', ax=ax, color='coral')
-        ax.set_title(f'{name.upper()} – Missing %')
-        ax.set_xlabel('% Missing')
-
-plt.tight_layout()
-plt.savefig('missing_values.png', dpi=100, bbox_inches='tight')
-plt.show()
-print("All 6 datasets: 0 missing values — pre-cleaned from source APIs.")
-"""))
-
-C.append(new_markdown_cell("### 3.2 Outlier Detection & Feature Engineering"))
-
-C.append(new_code_cell("""\
-macro = datasets['macro'].copy()
-macro['Year'] = macro['Year'].astype(int)
-
-# Outlier detection (IQR method)
-def iqr_outliers(df, name):
-    numeric = [c for c in df.select_dtypes(include=np.number).columns
-               if c not in ('Year','Latitude','Longitude')]
-    found = []
-    for col in numeric:
-        Q1, Q3 = df[col].quantile(0.25), df[col].quantile(0.75)
-        IQR = Q3 - Q1
-        n = ((df[col] < Q1 - 1.5*IQR) | (df[col] > Q3 + 1.5*IQR)).sum()
-        if n > 0:
-            found.append(f'{name}.{col}: {n} outlier(s)')
-    return found
-
-all_outliers = []
-for k, df in datasets.items():
-    all_outliers.extend(iqr_outliers(df, k))
-
-if all_outliers:
-    for o in all_outliers[:10]:
-        print(o)
+# Visualise macro missing values
+fig, ax = plt.subplots(figsize=(14, 4))
+miss_pct = macro.isnull().mean() * 100
+miss_pct = miss_pct[miss_pct > 0].sort_values(ascending=False)
+if not miss_pct.empty:
+    ax.bar(miss_pct.index, miss_pct.values, color="#E74C3C", alpha=0.8)
+    ax.set_title("Missing Values in Macro Indicators (%)")
+    ax.set_ylabel("Missing (%)")
+    plt.xticks(rotation=35, ha="right")
 else:
-    print("No significant outliers detected.")
-print("Note: COVID-2020 and 2008-crisis observations are retained as real economic shocks.")
-
-# Feature engineering on mobile money dataset
-mm = datasets['mobile_money'].copy()
-mm['User_Growth_YoY'] = mm['MPesa_Users_M'].pct_change() * 100
-mm['Vol_Growth_YoY']  = mm['Mobile_Money_Volume_B_KES'].pct_change() * 100
-print(f"\\nM-Pesa highest user growth: {mm['User_Growth_YoY'].max():.1f}% "
-      f"in year {int(mm.loc[mm['User_Growth_YoY'].idxmax(), 'Year'])}")
-"""))
-
-C.append(new_markdown_cell("## 4. Exploratory Data Analysis (EDA)\n\n### 4.1 Macro-Economic Trends (2000–2023)"))
-
-C.append(new_code_cell("""\
-fig, axes = plt.subplots(2, 2, figsize=(16, 10))
-fig.suptitle('Kenya Macro-Economic Trends (2000–2023)', fontsize=14, fontweight='bold')
-macro_plot = macro.copy()
-
-# GDP Growth
-ax = axes[0, 0]
-gdp_col = [c for c in macro_plot.columns if 'GDP Growth' in c][0]
-colors_bar = ['#e74c3c' if v < 0 else '#27ae60' for v in macro_plot[gdp_col]]
-ax.bar(macro_plot['Year'], macro_plot[gdp_col], color=colors_bar, alpha=0.85)
-ax.axhline(0, color='black', lw=0.8)
-ax.set_title('GDP Growth Rate (%)', fontweight='bold')
-ax.set_xlabel('Year'); ax.set_ylabel('%')
-ax.tick_params(axis='x', rotation=45)
-
-# Inflation
-ax = axes[0, 1]
-inf_col = [c for c in macro_plot.columns if 'Inflation' in c][0]
-ax.plot(macro_plot['Year'], macro_plot[inf_col], color='#e67e22', lw=2.5, marker='o', ms=4)
-ax.axhline(5, color='green', ls='--', alpha=0.7, label='CBK target 5%')
-ax.set_title('Inflation Rate (%)', fontweight='bold')
-ax.set_xlabel('Year'); ax.set_ylabel('%')
-ax.legend(fontsize=9); ax.tick_params(axis='x', rotation=45)
-
-# Poverty
-ax = axes[1, 0]
-pov_col = [c for c in macro_plot.columns if 'Poverty' in c][0]
-ax.plot(macro_plot['Year'], macro_plot[pov_col], color='#c0392b', lw=2.5, marker='s', ms=5)
-ax.fill_between(macro_plot['Year'], macro_plot[pov_col], alpha=0.2, color='#c0392b')
-ax.set_title('Poverty Headcount Ratio (%)', fontweight='bold')
-ax.set_xlabel('Year'); ax.set_ylabel('% below poverty line')
-ax.tick_params(axis='x', rotation=45)
-
-# Government Debt
-ax = axes[1, 1]
-debt_col = [c for c in macro_plot.columns if 'Debt' in c][0]
-ax.plot(macro_plot['Year'], macro_plot[debt_col], color='#8e44ad', lw=2.5, marker='D', ms=4)
-ax.axhline(55, color='orange', ls='--', alpha=0.7, label='IMF caution 55%')
-ax.set_title('Government Debt (% GDP)', fontweight='bold')
-ax.set_xlabel('Year'); ax.set_ylabel('% of GDP')
-ax.legend(fontsize=9); ax.tick_params(axis='x', rotation=45)
-
+    ax.text(0.5, 0.5, "No missing values in macro dataset",
+            ha="center", va="center", transform=ax.transAxes,
+            fontsize=14, color="#27AE60")
+    ax.set_title("Missing Values Check — Macro Indicators")
 plt.tight_layout()
-plt.savefig('macro_trends.png', dpi=100, bbox_inches='tight')
+plt.savefig("missing_values.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
 plt.show()
-print("Key insight: Strong GDP growth has not fully translated to poverty reduction.")
-"""))
+''').strip()))
 
-C.append(new_markdown_cell("### 4.2 Mobile Money Revolution"))
+# ── CELL 9: Clean data ───────────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+macro_clean = macro.copy()
+num_cols = [c for c in macro_clean.columns if c != "Year"]
+before = macro_clean[num_cols].isnull().sum().sum()
+macro_clean[num_cols] = macro_clean[num_cols].interpolate(
+    method="linear", limit_direction="both"
+)
+after  = macro_clean[num_cols].isnull().sum().sum()
+print(f"Macro missing values: {before} -> {after} (after interpolation)")
+print("Data validation complete - all datasets clean")
+''').strip()))
 
-C.append(new_code_cell("""\
-mm = datasets['mobile_money'].copy()
-fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-fig.suptitle('The M-Pesa Revolution vs Poverty (2007–2023)', fontsize=13, fontweight='bold')
+# ── CELL 10: Section header ──────────────────────────────────────────
+cells.append(new_markdown_cell("## 4. Exploratory Data Analysis (EDA)"))
 
-ax1 = axes[0]; ax1t = ax1.twinx()
-ax1.bar(mm['Year'], mm['MPesa_Users_M'], color='#27ae60', alpha=0.6, label='M-Pesa Users (M)')
-ax1t.plot(mm['Year'], mm['Poverty_Rate_National'], 'r-o', lw=2.5, ms=6, label='Poverty Rate %')
-ax1t.plot(mm['Year'], mm['Financial_Inclusion_Pct'], 'b--s', lw=2, ms=5, label='Financial Inclusion %')
-ax1.set_xlabel('Year'); ax1.set_ylabel('M-Pesa Users (M)', color='#27ae60')
-ax1t.set_ylabel('Rate (%)', color='red')
-ax1.set_title('M-Pesa Users vs Poverty')
-lines1, labs1 = ax1.get_legend_handles_labels()
-lines2, labs2 = ax1t.get_legend_handles_labels()
-ax1.legend(lines1 + lines2, labs1 + labs2, fontsize=8, loc='upper left')
+# ── CELL 11: Macro trends ─────────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+fig, axes = plt.subplots(2, 1, figsize=(14, 8))
+fig.suptitle("Kenya Macro Economic Trends (2000-2023)", fontsize=16)
 
-ax2 = axes[1]; ax2t = ax2.twinx()
-ax2.bar(mm['Year'], mm['Mobile_Money_Volume_B_KES'], color='#2980b9', alpha=0.6, label='Volume (B KES)')
-ax2t.plot(mm['Year'], mm['Remittances_B_USD'], 'g-o', lw=2.5, ms=6, label='Remittances (B USD)')
-ax2.set_xlabel('Year'); ax2.set_ylabel('Volume (KES Billions)', color='#2980b9')
-ax2t.set_ylabel('Remittances (B USD)', color='green')
-ax2.set_title('Transaction Volume & Remittances')
-lines1, labs1 = ax2.get_legend_handles_labels()
-lines2, labs2 = ax2t.get_legend_handles_labels()
-ax2.legend(lines1 + lines2, labs1 + labs2, fontsize=8, loc='upper left')
-
-plt.tight_layout()
-plt.savefig('mpesa_revolution.png', dpi=100, bbox_inches='tight')
-plt.show()
-
-corr = mm['MPesa_Users_M'].corr(mm['Poverty_Rate_National'])
-print(f"Pearson correlation (M-Pesa Users vs Poverty): {corr:.3f}")
-print("Strong negative correlation confirms M-Pesa adoption is linked to poverty reduction.")
-"""))
-
-C.append(new_markdown_cell("### 4.3 County Inequality Distribution"))
-
-C.append(new_code_cell("""\
-county = datasets['county'].copy()
-fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-fig.suptitle('Kenya County-Level Poverty & Development (50 Counties)', fontsize=13, fontweight='bold')
-
-# Histogram
 ax = axes[0]
-ax.hist(county['Poverty_Rate'], bins=15, color='#e74c3c', alpha=0.8, edgecolor='white')
-ax.axvline(county['Poverty_Rate'].mean(), color='red', ls='--', lw=2,
-           label=f"Mean: {county['Poverty_Rate'].mean():.1f}%")
-ax.axvline(county['Poverty_Rate'].median(), color='orange', ls=':', lw=2,
-           label=f"Median: {county['Poverty_Rate'].median():.1f}%")
-ax.set_title('Poverty Rate Distribution'); ax.set_xlabel('Poverty Rate (%)'); ax.legend()
+colors_gdp = ["#27AE60" if v >= 0 else "#E74C3C"
+               for v in macro_clean["GDP Growth (%)"].fillna(0)]
+ax.bar(macro_clean["Year"], macro_clean["GDP Growth (%)"].fillna(0),
+       color=colors_gdp, alpha=0.85, label="GDP Growth (%)")
+ax.axhline(0, color="#566573", linewidth=0.8)
+ax.set_ylabel("GDP Growth (%)")
+ax.set_title("Annual GDP Growth Rate")
+ax.legend()
 
-# Top 5 poor vs rich
-ax = axes[1]
-top5 = county.nlargest(5, 'Poverty_Rate')[['County','Poverty_Rate']]
-bot5 = county.nsmallest(5, 'Poverty_Rate')[['County','Poverty_Rate']]
-combined = pd.concat([top5, bot5]).reset_index(drop=True)
-colors_b = ['#e74c3c']*5 + ['#27ae60']*5
-bars = ax.barh(combined['County'], combined['Poverty_Rate'], color=colors_b, alpha=0.85)
-ax.axvline(county['Poverty_Rate'].mean(), color='orange', ls='--', alpha=0.7, label='National avg')
-ax.set_title('5 Most Poor vs 5 Least Poor'); ax.set_xlabel('Poverty Rate (%)')
-ax.legend(fontsize=8)
-for bar, val in zip(bars, combined['Poverty_Rate']):
-    ax.text(bar.get_width()+0.5, bar.get_y()+bar.get_height()/2, f'{val:.1f}%', va='center', fontsize=8)
-
-# Scatter: Poverty vs HDI
-ax = axes[2]
-sc = ax.scatter(county['Poverty_Rate'], county['HDI_Score'],
-                c=county['Mobile_Penetration'], cmap='RdYlGn', s=60, alpha=0.8,
-                edgecolors='gray', lw=0.5)
-plt.colorbar(sc, ax=ax, label='Mobile Penetration (%)')
-ax.set_xlabel('Poverty Rate (%)'); ax.set_ylabel('HDI Score')
-ax.set_title('Poverty vs HDI (colour = Mobile Penetration)')
-for _, row in county[county['Poverty_Rate'] > 70].iterrows():
-    ax.annotate(row['County'], (row['Poverty_Rate'], row['HDI_Score']),
-                textcoords='offset points', xytext=(5,3), fontsize=7)
+ax2 = axes[1]
+inf_data = macro_clean["Inflation Rate (%)"].fillna(method="ffill")
+ax2.plot(macro_clean["Year"], inf_data, color="#E74C3C", linewidth=2.5,
+         marker="o", markersize=4, label="Inflation (%)")
+ax2.axhline(5, color="#27AE60", linewidth=1.5, linestyle="--", label="CBK Target 5%")
+ax2.fill_between(macro_clean["Year"], inf_data, 5,
+                  where=(inf_data > 5), alpha=0.15, color="#E74C3C")
+ax2.set_ylabel("Inflation Rate (%)")
+ax2.set_title("Inflation vs CBK Target")
+ax2.legend()
 
 plt.tight_layout()
-plt.savefig('county_inequality.png', dpi=100, bbox_inches='tight')
+plt.savefig("macro_trends.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
 plt.show()
 
-print(f"Poorest: {county.nlargest(1,'Poverty_Rate').iloc[0]['County']} ({county['Poverty_Rate'].max():.1f}%)")
-print(f"Richest: {county.nsmallest(1,'Poverty_Rate').iloc[0]['County']} ({county['Poverty_Rate'].min():.1f}%)")
-print(f"Poverty gap: {county['Poverty_Rate'].max()-county['Poverty_Rate'].min():.1f} percentage points")
-"""))
+print(f"GDP Growth - Mean: {macro_clean['GDP Growth (%)'].mean():.2f}%  "
+      f"Max: {macro_clean['GDP Growth (%)'].max():.2f}%  "
+      f"Min: {macro_clean['GDP Growth (%)'].min():.2f}%")
+print(f"Inflation  - Mean: {macro_clean['Inflation Rate (%)'].mean():.2f}%  "
+      f"Max: {macro_clean['Inflation Rate (%)'].max():.2f}%")
+''').strip()))
 
-C.append(new_markdown_cell("### 4.4 Correlation Matrix"))
+# ── CELL 12: Correlation matrix ───────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+corr_cols = [c for c in macro_clean.columns
+             if c != "Year" and macro_clean[c].notna().sum() > 5]
+corr_matrix = macro_clean[corr_cols].corr().round(2)
 
-C.append(new_code_cell("""\
-macro_num = macro.select_dtypes(include=np.number).drop(columns=['Year'])
-short = {c: c.replace(' (%)','').replace(' (% of GDP)','').replace(' Rate','')
-              .replace(' Ratio','').replace(' Headcount','').replace(' Index','')
-              .replace(' (constant USD)','').replace(' (per 100)','')[:18]
-         for c in macro_num.columns}
-corr = macro_num.rename(columns=short).corr()
+fig, ax = plt.subplots(figsize=(14, 10))
+sns.heatmap(
+    corr_matrix, annot=True, fmt=".2f", cmap="RdBu_r",
+    vmin=-1, vmax=1, linewidths=0.5, linecolor="#2C3E50", ax=ax,
+    cbar_kws={"shrink": 0.8, "label": "Pearson r"},
+    annot_kws={"size": 8}
+)
+ax.set_title("Kenya Macro Indicator Correlation Matrix", fontsize=15, pad=15)
+ax.set_xticklabels(ax.get_xticklabels(), rotation=35, ha="right", fontsize=9)
+ax.set_yticklabels(ax.get_yticklabels(), rotation=0, fontsize=9)
 
-fig, ax = plt.subplots(figsize=(13, 10))
-mask = np.triu(np.ones_like(corr, dtype=bool))
-sns.heatmap(corr, mask=mask, annot=True, fmt='.2f', cmap='RdYlGn',
-            vmin=-1, vmax=1, ax=ax, square=True, annot_kws={'size': 7}, linewidths=0.5)
-ax.set_title('Macro Indicator Correlation Matrix (2000–2023)', fontsize=13, fontweight='bold')
 plt.tight_layout()
-plt.savefig('correlation_matrix.png', dpi=100, bbox_inches='tight')
+plt.savefig("correlation_matrix.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
 plt.show()
 
-pov_key = [v for k, v in short.items() if 'Poverty' in k][0]
-pov_corr = corr[pov_key].drop(pov_key).sort_values()
-print("Top 3 indicators NEGATIVELY correlated with poverty:")
-print(pov_corr.head(3).to_string())
-print("\\nTop 3 indicators POSITIVELY correlated with poverty:")
-print(pov_corr.tail(3).to_string())
-"""))
+if "GDP Growth (%)" in corr_matrix.columns:
+    top = corr_matrix["GDP Growth (%)"].abs().sort_values(ascending=False)[1:5]
+    print("Top 4 correlates with GDP Growth:")
+    for ind, val in top.items():
+        print(f"  {ind:<42}: r = {corr_matrix.loc[ind,'GDP Growth (%)']:.3f}")
+''').strip()))
 
-C.append(new_markdown_cell("## 5. Machine Learning Modelling\n\n### 5.1 Mobile Money → Poverty Regression (3 Models)"))
+# ── CELL 13: M-Pesa revolution ────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+fig, ax1 = plt.subplots(figsize=(14, 6))
+ax2 = ax1.twinx()
 
-C.append(new_code_cell("""\
-mm = datasets['mobile_money'].copy()
-features = ['MPesa_Users_M','Financial_Inclusion_Pct','GDP_Growth',
-            'Mobile_Money_Volume_B_KES','Remittances_B_USD']
-target   = 'Poverty_Rate_National'
+ax1.bar(mobile["Year"], mobile["MPesa_Users_M"],
+        color="#27AE60", alpha=0.6, label="M-Pesa Users (M)")
+ax1.set_ylabel("M-Pesa Users (Millions)", color="#27AE60")
+ax1.tick_params(axis="y", labelcolor="#27AE60")
 
-X = mm[features].values
-y = mm[target].values
+l1, = ax2.plot(mobile["Year"], mobile["Poverty_Rate_National"],
+               color="#E74C3C", linewidth=2.5, marker="o", markersize=6,
+               label="Poverty Rate (%)")
+l2, = ax2.plot(mobile["Year"], mobile["Financial_Inclusion_Pct"],
+               color="#F39C12", linewidth=2.5, linestyle="--", marker="s",
+               markersize=5, label="Financial Inclusion (%)")
+ax2.set_ylabel("Rate (%)")
+ax1.set_title("M-Pesa Revolution: Users, Poverty & Financial Inclusion (2007-2023)", fontsize=14)
+ax1.set_xlabel("Year")
+ax1.legend(loc="upper left"); ax2.legend(loc="upper right")
 
-scaler = StandardScaler()
-Xs = scaler.fit_transform(X)
-Xtr, Xte, ytr, yte = Xs[:-4], Xs[-4:], y[:-4], y[-4:]
-years_test = mm['Year'].values[-4:]
+plt.tight_layout()
+plt.savefig("mpesa_revolution.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+plt.show()
+
+print(f"M-Pesa Users: {mobile['MPesa_Users_M'].iloc[0]:.1f}M (2007) -> "
+      f"{mobile['MPesa_Users_M'].iloc[-1]:.0f}M (2023)")
+print(f"Poverty Rate: {mobile['Poverty_Rate_National'].iloc[0]:.1f}% -> "
+      f"{mobile['Poverty_Rate_National'].iloc[-1]:.1f}%")
+print(f"Financial Inclusion: {mobile['Financial_Inclusion_Pct'].iloc[0]:.1f}% -> "
+      f"{mobile['Financial_Inclusion_Pct'].iloc[-1]:.1f}%")
+''').strip()))
+
+# ── CELL 14: County inequality ────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+county_sorted = county.sort_values("Poverty_Rate", ascending=False)
+
+fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+
+ax = axes[0]
+top15 = county_sorted.head(15)
+bar_colors = ["#E74C3C" if p > 70 else "#F39C12" if p > 50 else "#F1C40F"
+               for p in top15["Poverty_Rate"]]
+ax.barh(top15["County"][::-1], top15["Poverty_Rate"][::-1],
+        color=bar_colors[::-1], alpha=0.85)
+ax.set_xlabel("Poverty Rate (%)")
+ax.set_title("Top 15 Counties - Highest Poverty Rate")
+ax.axvline(33.5, color="#3498DB", linestyle="--", linewidth=1.5, label="National avg")
+ax.legend()
+
+ax2 = axes[1]
+bot10 = county_sorted.tail(10)
+ax2.barh(bot10["County"][::-1], bot10["Poverty_Rate"][::-1],
+         color="#27AE60", alpha=0.8)
+ax2.set_xlabel("Poverty Rate (%)")
+ax2.set_title("Bottom 10 Counties - Lowest Poverty Rate")
+ax2.axvline(33.5, color="#3498DB", linestyle="--", linewidth=1.5, label="National avg")
+ax2.legend()
+
+plt.suptitle("Kenya County-Level Poverty Inequality", fontsize=15)
+plt.tight_layout()
+plt.savefig("county_inequality.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+plt.show()
+
+print(f"County Poverty Range: {county['Poverty_Rate'].min():.1f}% to "
+      f"{county['Poverty_Rate'].max():.1f}%")
+print(f"Gap (worst - best): {county['Poverty_Rate'].max()-county['Poverty_Rate'].min():.1f} pp")
+print(f"Standard Deviation: {county['Poverty_Rate'].std():.2f} pp")
+''').strip()))
+
+# ── CELL 15: Youth unemployment EDA ──────────────────────────────────
+cells.append(new_code_cell(dedent('''
+fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+
+ax = axes[0]
+ax.fill_between(youth["Year"], youth["Youth_Unemployment_Pct"],
+                alpha=0.25, color="#8E44AD")
+ax.plot(youth["Year"], youth["Youth_Unemployment_Pct"],
+        color="#8E44AD", linewidth=2.5, marker="o", markersize=5,
+        label="Youth Unemp (%)")
+ax.axhline(13.6, color="#27AE60", linestyle="--", linewidth=1.5,
+           label="Global avg 13.6%")
+ax.set_xlabel("Year"); ax.set_ylabel("Youth Unemployment (%)")
+ax.set_title("Kenya Youth Unemployment 2005-2023")
+ax.legend(); ax.grid(True, alpha=0.3)
+
+ax2 = axes[1]
+sc = ax2.scatter(youth["GDP_Growth"], youth["Youth_Unemployment_Pct"],
+                  c=youth["Year"], cmap="plasma", s=80, alpha=0.85, zorder=5)
+m, b = np.polyfit(youth["GDP_Growth"], youth["Youth_Unemployment_Pct"], 1)
+x_line = np.linspace(youth["GDP_Growth"].min(), youth["GDP_Growth"].max(), 100)
+ax2.plot(x_line, m*x_line+b, color="#E74C3C", linewidth=2, linestyle="--",
+         label="OLS trend")
+plt.colorbar(sc, ax=ax2, label="Year")
+ax2.set_xlabel("GDP Growth (%)"); ax2.set_ylabel("Youth Unemployment (%)")
+ax2.set_title("GDP Growth vs Youth Unemployment")
+ax2.legend()
+
+plt.suptitle("Youth Unemployment Analysis", fontsize=14)
+plt.tight_layout()
+plt.savefig("youth_unemployment_eda.png", dpi=120, bbox_inches="tight",
+            facecolor="#0E1117")
+plt.show()
+
+corr_val = youth["GDP_Growth"].corr(youth["Youth_Unemployment_Pct"])
+print(f"Correlation (GDP Growth <-> Youth Unemployment): r = {corr_val:.3f}")
+''').strip()))
+
+# ── CELL 16: Section header ───────────────────────────────────────────
+cells.append(new_markdown_cell("## 5. Machine Learning Models"))
+
+# ── CELL 17: Poverty regression ───────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+features = ["MPesa_Users_M", "Financial_Inclusion_Pct", "GDP_Growth",
+            "Mobile_Money_Volume_B_KES", "Remittances_B_USD"]
+target   = "Poverty_Rate_National"
+
+ml_df = mobile.dropna().copy()
+X = ml_df[features]
+y = ml_df[target]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42
+)
 
 models_dict = {
-    'Ridge Regression':  Ridge(alpha=1.0),
-    'Random Forest':     RandomForestRegressor(n_estimators=100, random_state=42),
-    'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, learning_rate=0.1, random_state=42),
+    "Ridge Regression":  Ridge(alpha=1.0),
+    "Gradient Boosting": GradientBoostingRegressor(
+        n_estimators=200, learning_rate=0.05, max_depth=3, random_state=42
+    ),
+    "Random Forest":     RandomForestRegressor(n_estimators=200, random_state=42),
 }
 
-results = {}
-for name, model in models_dict.items():
-    model.fit(Xtr, ytr)
-    pred = model.predict(Xte)
-    r2  = r2_score(yte, pred)
-    mae = mean_absolute_error(yte, pred)
-    cv  = cross_val_score(model, Xs, y, cv=3, scoring='r2')
-    results[name] = {'model': model, 'pred': pred, 'R2': r2, 'MAE': mae,
-                     'CV': cv.mean(), 'CV_std': cv.std()}
-    print(f"  {name:25s}: R2={r2:.3f}  MAE={mae:.3f}  CV_R2={cv.mean():.3f}±{cv.std():.3f}")
+results_ml = {}
+print("=== Model Comparison: Mobile Money -> Poverty ===")
+print(f"  {'Model':<25} {'R2 Score':>10} {'MAE':>8} {'RMSE':>8}")
+print("  " + "-" * 55)
 
-best_name = max(results, key=lambda k: results[k]['R2'])
-print(f"\\nBest model: {best_name}  R2={results[best_name]['R2']:.3f}")
-"""))
+for name, mdl in models_dict.items():
+    mdl.fit(X_train, y_train)
+    pred = mdl.predict(X_test)
+    r2   = r2_score(y_test, pred)
+    mae  = mean_absolute_error(y_test, pred)
+    rmse = np.sqrt(np.mean((pred - y_test.values)**2))
+    results_ml[name] = {"r2": r2, "mae": mae, "rmse": rmse, "model": mdl}
+    print(f"  {name:<25} {r2:>10.4f} {mae:>8.3f} {rmse:>8.3f}")
 
-C.append(new_code_cell("""\
-fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-fig.suptitle('Mobile Money → Poverty Model Evaluation', fontsize=13, fontweight='bold')
+best_name = max(results_ml, key=lambda n: results_ml[n]["r2"])
+best_r2   = results_ml[best_name]["r2"]
+best_mdl  = results_ml[best_name]["model"]
 
-# Actual vs Predicted
+print(f"\\nBest model: {best_name} (R2 = {best_r2:.4f})")
+
+gb = results_ml["Gradient Boosting"]["model"]
+imp_df = pd.DataFrame({
+    "Feature":    features,
+    "Importance": gb.feature_importances_ * 100
+}).sort_values("Importance", ascending=False)
+print("\\nFeature Importance (GBM):")
+for _, row in imp_df.iterrows():
+    bar = "x" * int(row["Importance"] / 3)
+    print(f"  {row['Feature']:<35}: {row['Importance']:>5.1f}%  {bar}")
+''').strip()))
+
+# ── CELL 18: Poverty model chart ──────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+best_mdl.fit(X, y)
+ml_df["Predicted"] = best_mdl.predict(X)
+
+fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+
 ax = axes[0]
-for name, res in results.items():
-    ax.plot(years_test, res['pred'], 'o--', lw=1.5, ms=6, label=name)
-ax.plot(years_test, yte, 'k-s', lw=2.5, ms=8, label='Actual', zorder=10)
-ax.set_title('Actual vs Predicted'); ax.set_xlabel('Year'); ax.set_ylabel('Poverty Rate (%)')
-ax.legend(fontsize=8)
+ax.plot(ml_df["Year"], ml_df[target], color="#E74C3C", linewidth=2.5,
+        marker="o", markersize=6, label="Actual Poverty Rate")
+ax.plot(ml_df["Year"], ml_df["Predicted"], color="#27AE60", linewidth=2.5,
+        linestyle="--", marker="D", markersize=6,
+        label=f"{best_name} Prediction")
+ax.fill_between(ml_df["Year"], ml_df[target], ml_df["Predicted"],
+                alpha=0.12, color="#F39C12", label="Residual")
+ax.set_xlabel("Year"); ax.set_ylabel("Poverty Rate (%)")
+ax.set_title(f"ML Poverty Prediction ({best_name})\nR2 = {best_r2:.4f}")
+ax.legend(); ax.grid(True, alpha=0.3)
 
-# R2 comparison
-ax = axes[1]
-names = list(results.keys())
-r2vals = [results[n]['R2'] for n in names]
-colors_c = ['#27ae60' if v == max(r2vals) else '#3498db' for v in r2vals]
-bars = ax.bar(names, r2vals, color=colors_c, alpha=0.85)
-ax.set_title('Model R² Comparison'); ax.set_ylabel('R²'); ax.set_ylim(0, 1.05)
-ax.axhline(0.9, color='red', ls='--', alpha=0.5, label='R²=0.9 benchmark')
-ax.legend(); ax.tick_params(axis='x', rotation=15)
-for bar, val in zip(bars, r2vals):
-    ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.01,
-            f'{val:.3f}', ha='center', fontweight='bold')
+ax2 = axes[1]
+imp_colors = ["#E74C3C" if v > 25 else "#F39C12" if v > 15 else "#3498DB"
+               for v in imp_df["Importance"]]
+ax2.barh(imp_df["Feature"][::-1], imp_df["Importance"][::-1],
+          color=imp_colors[::-1], alpha=0.85)
+ax2.set_xlabel("Feature Importance (%)")
+ax2.set_title("GBM Feature Importance (Poverty Model)")
+for bar, val in zip(ax2.patches, imp_df["Importance"][::-1]):
+    ax2.text(bar.get_width() + 0.3, bar.get_y() + bar.get_height()/2,
+             f"{val:.1f}%", va="center", fontsize=9, color="white")
 
-# Feature importance (Gradient Boosting)
-ax = axes[2]
-gb_imp = results['Gradient Boosting']['model'].feature_importances_
-sorted_idx = np.argsort(gb_imp)
-short_feat = [f.replace('_',' ') for f in features]
-ax.barh([short_feat[i] for i in sorted_idx], [gb_imp[i] for i in sorted_idx],
-        color='#27ae60', alpha=0.85)
-ax.set_title('Feature Importance (Gradient Boosting)'); ax.set_xlabel('Importance Score')
-
+plt.suptitle(f"Mobile Money Impact on Poverty (R2={best_r2:.3f})", fontsize=14)
 plt.tight_layout()
-plt.savefig('ml_poverty_model.png', dpi=100, bbox_inches='tight')
+plt.savefig("ml_poverty_model.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
 plt.show()
-print(f"Key finding: Financial Inclusion and M-Pesa Users are the strongest poverty predictors.")
-"""))
+print(f"Best model R2 = {best_r2:.4f} -> explains {best_r2*100:.1f}% of poverty variance")
+''').strip()))
 
-C.append(new_markdown_cell("### 5.2 County Development Clustering (KMeans, k=5)"))
+# ── CELL 19: KMeans clustering ────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+cluster_features = ["Poverty_Rate","Unemployment_Rate","Mobile_Penetration",
+                    "Electricity_Access","HDI_Score"]
+X_county = county[cluster_features].fillna(county[cluster_features].mean())
 
-C.append(new_code_cell("""\
-county = datasets['county'].copy()
-cluster_feats = ['Poverty_Rate','Unemployment_Rate','Mobile_Penetration',
-                 'Electricity_Access','HDI_Score']
-Xc = county[cluster_feats].fillna(county[cluster_feats].mean()).values
-Xcs = StandardScaler().fit_transform(Xc)
+scaler   = StandardScaler()
+X_scaled = scaler.fit_transform(X_county)
 
 # Elbow method
-inertias = [KMeans(n_clusters=k, random_state=42, n_init=10).fit(Xcs).inertia_
-            for k in range(2, 10)]
+inertias = []
+k_range  = range(2, 11)
+for k in k_range:
+    km = KMeans(n_clusters=k, random_state=42, n_init=20)
+    km.fit(X_scaled)
+    inertias.append(km.inertia_)
 
-fig, ax = plt.subplots(figsize=(8, 5))
-ax.plot(range(2, 10), inertias, 'bo-', lw=2, ms=8)
-ax.axvline(5, color='red', ls='--', alpha=0.7, label='Optimal k=5')
-ax.set_title('Elbow Method – Optimal Number of Clusters', fontweight='bold')
-ax.set_xlabel('k'); ax.set_ylabel('Inertia'); ax.legend()
-plt.tight_layout()
-plt.savefig('elbow_method.png', dpi=100, bbox_inches='tight')
-plt.show()
+fig, axes = plt.subplots(1, 2, figsize=(16, 5))
 
-# Apply k=5
-km5 = KMeans(n_clusters=5, random_state=42, n_init=20)
-county['Cluster'] = km5.fit_predict(Xcs)
-cluster_pov = county.groupby('Cluster')['Poverty_Rate'].mean().sort_values()
-rank_map = {old: new for new, old in enumerate(cluster_pov.index)}
-county['Cluster'] = county['Cluster'].map(rank_map)
-tier_labels = {0:'Tier 1: Developed', 1:'Tier 2: Emerging', 2:'Tier 3: Developing',
-               3:'Tier 4: Vulnerable', 4:'Tier 5: Marginalised'}
-county['Cluster_Label'] = county['Cluster'].map(tier_labels)
-
-# Cluster profiles
-profiles = county.groupby('Cluster_Label')[cluster_feats].mean().round(2)
-print("Cluster Profiles (mean values):")
-print(profiles.to_string())
-print("\\nCounties per tier:")
-for label, grp in county.groupby('Cluster_Label'):
-    print(f"  {label}: {', '.join(grp['County'].tolist()[:4])}...")
-"""))
-
-C.append(new_code_cell("""\
-# Cluster profiles heatmap
-profiles_idx = profiles.copy()
-norm = (profiles_idx - profiles_idx.min()) / (profiles_idx.max() - profiles_idx.min() + 1e-9)
-
-fig, axes = plt.subplots(1, 2, figsize=(16, 6))
 ax = axes[0]
-im = ax.imshow(norm.T.values, cmap='RdYlGn', aspect='auto')
-ax.set_xticks(range(5)); ax.set_xticklabels(norm.index, rotation=30, ha='right', fontsize=8)
-ax.set_yticks(range(len(cluster_feats)))
-ax.set_yticklabels([f.replace('_',' ') for f in cluster_feats])
-ax.set_title('Cluster Feature Profiles (Normalised)', fontweight='bold')
-plt.colorbar(im, ax=ax, label='Normalised Score (0=worst, 1=best)')
+ax.plot(list(k_range), inertias, "o-", color="#3498DB", linewidth=2.5, markersize=8)
+ax.axvline(5, color="#E74C3C", linestyle="--", linewidth=1.5, label="Chosen k=5")
+ax.set_xlabel("Number of Clusters k"); ax.set_ylabel("Inertia")
+ax.set_title("Elbow Method for Optimal k"); ax.legend(); ax.grid(True, alpha=0.3)
 
-ax = axes[1]
-counts = county['Cluster_Label'].value_counts().sort_index()
-colors_k = ['#27ae60','#2ecc71','#f39c12','#e67e22','#e74c3c']
-bars = ax.bar(range(len(counts)), counts.values, color=colors_k[:len(counts)], alpha=0.85)
-ax.set_xticks(range(len(counts)))
-ax.set_xticklabels(counts.index, rotation=30, ha='right', fontsize=8)
-ax.set_title('Counties per Development Tier', fontweight='bold')
-ax.set_ylabel('Number of Counties')
-for bar, val in zip(bars, counts.values):
-    ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.1, str(val), ha='center', fontweight='bold')
+# k=5 clustering
+km5    = KMeans(n_clusters=5, random_state=42, n_init=20)
+county_cl = county.copy()
+county_cl["Cluster_Num"] = km5.fit_predict(X_scaled)
 
+# Sort by poverty
+cl_pov = county_cl.groupby("Cluster_Num")["Poverty_Rate"].mean().sort_values()
+cl_rank = {old: new for new, old in enumerate(cl_pov.index)}
+county_cl["Cluster"] = county_cl["Cluster_Num"].map(cl_rank)
+
+CLUSTER_NAMES  = {0:"Emerging",1:"Developing",2:"Transitioning",
+                   3:"Vulnerable",4:"Critical Need"}
+CLUSTER_COLORS = ["#27AE60","#2ECC71","#F39C12","#E67E22","#E74C3C"]
+county_cl["Cluster_Label"] = county_cl["Cluster"].map(CLUSTER_NAMES)
+
+ax2 = axes[1]
+for cl_id in range(5):
+    mask = county_cl["Cluster"] == cl_id
+    ax2.scatter(county_cl.loc[mask,"Poverty_Rate"],
+                county_cl.loc[mask,"HDI_Score"],
+                color=CLUSTER_COLORS[cl_id], s=80, alpha=0.85,
+                label=CLUSTER_NAMES[cl_id], zorder=5)
+ax2.set_xlabel("Poverty Rate (%)"); ax2.set_ylabel("HDI Score")
+ax2.set_title("County Clusters: Poverty Rate vs HDI")
+ax2.legend(loc="upper right", fontsize=9); ax2.grid(True, alpha=0.3)
+
+plt.suptitle("KMeans County Clustering (k=5)", fontsize=14)
 plt.tight_layout()
-plt.savefig('county_clusters.png', dpi=100, bbox_inches='tight')
+plt.savefig("county_clusters.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
 plt.show()
-"""))
 
-C.append(new_markdown_cell("### 5.3 Economic Forecasting (Holt-Winters + ARIMA)"))
+print("Cluster Summary:")
+summary = county_cl.groupby("Cluster_Label")["Poverty_Rate"].agg(["count","mean","min","max"])
+summary.columns = ["Count","Avg Poverty","Min Poverty","Max Poverty"]
+print(summary.round(2).to_string())
+''').strip()))
 
-C.append(new_code_cell("""\
-macro_idx = macro.set_index('Year')
-gdp_col   = [c for c in macro_idx.columns if 'GDP Growth' in c][0]
-pov_col   = [c for c in macro_idx.columns if 'Poverty' in c][0]
+# ── CELL 20: GBM Youth unemployment ──────────────────────────────────
+cells.append(new_code_cell(dedent('''
+yu_features = ["GDP_Growth","University_Enrollment_K",
+               "FDI_Inflows_B_USD","Internet_Users_Pct","Inflation_Rate"]
+yu_target   = "Youth_Unemployment_Pct"
 
-# ADF stationarity test
-def adf_test(series, name):
-    result = adfuller(series.dropna(), autolag='AIC')
-    stat_str = 'Stationary' if result[1] < 0.05 else 'Non-stationary (diff needed)'
-    print(f"ADF {name}: stat={result[0]:.3f}  p={result[1]:.4f}  [{stat_str}]")
+yu_df  = youth.dropna().copy()
+X_yu   = yu_df[yu_features]
+y_yu   = yu_df[yu_target]
 
-adf_test(macro_idx[gdp_col], 'GDP Growth')
-adf_test(macro_idx[pov_col], 'Poverty Rate')
-"""))
+gbm_yu = GradientBoostingRegressor(
+    n_estimators=200, learning_rate=0.05, max_depth=3, random_state=42
+)
+gbm_yu.fit(X_yu, y_yu)
+yu_df["Fitted"] = gbm_yu.predict(X_yu)
+train_r2_yu     = r2_score(y_yu, yu_df["Fitted"])
 
-C.append(new_code_cell("""\
-horizon = 5
-last_yr = int(macro['Year'].max())
-fc_years = list(range(last_yr+1, last_yr+1+horizon))
+# 5-year forecast
+last_row = X_yu.iloc[-1].copy()
+trend    = X_yu.diff().mean()
+fc_rows  = [(last_row + trend * i).values for i in range(1,6)]
+X_future = pd.DataFrame(fc_rows, columns=yu_features)
+yu_fc    = gbm_yu.predict(X_future)
+yu_yrs   = list(range(int(yu_df["Year"].max())+1, int(yu_df["Year"].max())+6))
 
-def fit_hw_arima(series, label, color):
-    s = series.dropna()
-    hist_y = list(s.index)
-    try:
-        hw = ExponentialSmoothing(s, trend='add', damped_trend=True,
-                                  initialization_method='estimated').fit(optimized=True)
-        hw_fc = hw.forecast(horizon)
-    except Exception:
-        hw_fc = pd.Series([s.iloc[-1]]*horizon)
-    try:
-        arima  = ARIMA(s, order=(2,1,2)).fit()
-        ar_fc  = arima.forecast(horizon)
-        ar_ci  = arima.get_forecast(horizon).conf_int(alpha=0.1)
-    except Exception:
-        ar_fc = pd.Series([s.iloc[-1]]*horizon)
-        ar_ci = None
-    return s, hist_y, hw_fc, ar_fc, ar_ci
+yu_imp = pd.DataFrame({
+    "Feature": yu_features,
+    "Importance": gbm_yu.feature_importances_ * 100
+}).sort_values("Importance", ascending=False)
 
-gdp_s, gdp_hy, hw_gdp, ar_gdp, ci_gdp = fit_hw_arima(macro_idx[gdp_col], 'GDP Growth','#27ae60')
-pov_s, pov_hy, hw_pov, ar_pov, ci_pov = fit_hw_arima(macro_idx[pov_col], 'Poverty','#e74c3c')
+fig, axes = plt.subplots(1, 2, figsize=(16, 5))
 
-fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-fig.suptitle('Economic Forecasts (2024–2028): Holt-Winters + ARIMA', fontsize=13, fontweight='bold')
+ax = axes[0]
+ax.fill_between(yu_df["Year"], yu_df[yu_target], alpha=0.2, color="#8E44AD")
+ax.plot(yu_df["Year"], yu_df[yu_target], color="#8E44AD", linewidth=2.5,
+        marker="o", markersize=5, label="Actual")
+ax.plot(yu_df["Year"], yu_df["Fitted"], color="#3498DB", linewidth=2,
+        linestyle="--", label="GBM Fitted")
+ax.plot(yu_yrs, yu_fc, color="#F39C12", linewidth=2.5, linestyle="--",
+        marker="D", markersize=6, label="5-Year Forecast")
+ax.axhline(13.6, color="#27AE60", linestyle=":", linewidth=1.5, label="Global avg")
+ax.set_xlabel("Year"); ax.set_ylabel("Youth Unemployment (%)")
+ax.set_title(f"GBM Youth Unemployment (R2={train_r2_yu:.3f})")
+ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
 
-for ax, (s, hy, hw, ar, ci, label, color) in zip(axes, [
-    (gdp_s, gdp_hy, hw_gdp, ar_gdp, ci_gdp, 'GDP Growth (%)', '#27ae60'),
-    (pov_s, pov_hy, hw_pov, ar_pov, ci_pov, 'Poverty (%)', '#e74c3c'),
-]):
-    ax.plot(hy, s.values, color=color, lw=2.5, marker='o', ms=3, label='Historical')
-    ax.plot(fc_years, hw.values, '--', color=color, lw=2, marker='s', label='Holt-Winters')
-    ax.plot(fc_years, ar.values, ':', color='purple', lw=2, marker='D', label='ARIMA(2,1,2)')
-    if ci is not None:
-        ax.fill_between(fc_years, ci.iloc[:,0], ci.iloc[:,1], alpha=0.15, color='purple', label='90% CI')
-    ax.axvline(last_yr, color='gray', ls='--', alpha=0.7, label='Forecast start')
-    ax.set_title(f'{label} Forecast'); ax.set_xlabel('Year'); ax.set_ylabel(label)
-    ax.legend(fontsize=8)
+ax2 = axes[1]
+ax2.barh(yu_imp["Feature"][::-1], yu_imp["Importance"][::-1],
+          color="#F39C12", alpha=0.85)
+ax2.set_xlabel("Feature Importance (%)")
+ax2.set_title("Feature Importance (Youth Unemployment GBM)")
+for bar, val in zip(ax2.patches, yu_imp["Importance"][::-1]):
+    ax2.text(bar.get_width()+0.3, bar.get_y()+bar.get_height()/2,
+             f"{val:.1f}%", va="center", fontsize=9, color="white")
 
+plt.suptitle("Youth Unemployment GBM Model", fontsize=14)
 plt.tight_layout()
-plt.savefig('forecasts.png', dpi=100, bbox_inches='tight')
+plt.savefig("youth_unemployment_model.png", dpi=120, bbox_inches="tight",
+            facecolor="#0E1117")
 plt.show()
-print(f"GDP Growth forecast (Holt-Winters): {hw_gdp.round(2).tolist()}")
-print(f"Poverty forecast    (Holt-Winters): {hw_pov.round(2).tolist()}")
-"""))
+print(f"Training R2 = {train_r2_yu:.4f}")
+print(f"5-yr Forecast: {', '.join(f'{yr}: {v:.1f}%' for yr,v in zip(yu_yrs,yu_fc))}")
+''').strip()))
 
-C.append(new_markdown_cell("### 5.4 Youth Unemployment – Gradient Boosting"))
-
-C.append(new_code_cell("""\
-youth = datasets['youth'].copy()
-y_feats  = ['GDP_Growth','University_Enrollment_K','FDI_Inflows_B_USD',
-             'Internet_Users_Pct','Inflation_Rate']
-y_target = 'Youth_Unemployment_Pct'
-
-Xy, yy = youth[y_feats].values, youth[y_target].values
-Xyt, Xye, yyt, yye = train_test_split(Xy, yy, test_size=0.25, random_state=42)
-
-gb_y = GradientBoostingRegressor(n_estimators=150, learning_rate=0.08, max_depth=3, random_state=42)
-gb_y.fit(Xyt, yyt)
-y_pred = gb_y.predict(Xye)
-r2_y   = r2_score(yye, y_pred)
-mae_y  = mean_absolute_error(yye, y_pred)
-cv_y   = cross_val_score(gb_y, Xy, yy, cv=3, scoring='r2')
-
-print(f"Youth Unemployment Model:")
-print(f"  R² (test):    {r2_y:.3f}")
-print(f"  MAE (test):   {mae_y:.3f}%")
-print(f"  CV R² (3-fold): {cv_y.mean():.3f} ± {cv_y.std():.3f}")
-
-imp_y  = gb_y.feature_importances_
-sorted_idx = np.argsort(imp_y)
-
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-fig.suptitle('Youth Unemployment – Gradient Boosting', fontsize=13, fontweight='bold')
-axes[0].barh([y_feats[i].replace('_',' ') for i in sorted_idx],
-             [imp_y[i] for i in sorted_idx], color='#3498db', alpha=0.85)
-axes[0].set_title('Feature Importance'); axes[0].set_xlabel('Importance Score')
-
-axes[1].scatter(yye, y_pred, color='#3498db', s=80, alpha=0.8, edgecolors='gray')
-lims = [min(yye.min(), y_pred.min())-1, max(yye.max(), y_pred.max())+1]
-axes[1].plot(lims, lims, 'r--', alpha=0.8, label='Perfect prediction')
-axes[1].set_title(f'Actual vs Predicted (R²={r2_y:.3f})')
-axes[1].set_xlabel('Actual (%)'); axes[1].set_ylabel('Predicted (%)')
-axes[1].legend()
-
-plt.tight_layout()
-plt.savefig('youth_unemployment_model.png', dpi=100, bbox_inches='tight')
-plt.show()
-print(f"\\nTop driver: {y_feats[sorted_idx[-1]].replace('_',' ')}")
-"""))
-
-C.append(new_markdown_cell("## 6. Policy What-If Simulation"))
-
-C.append(new_code_cell("""\
-def simulate_policy(mobile_delta=0, edu_delta=0, fdi_delta=0, infra_delta=0):
-    # Evidence-based multipliers from KIPPRA 2023 & World Bank Kenya reports
-    baseline = {'poverty': 33.5, 'youth_unemployment': 61.5,
-                'gini': 40.8, 'gdp_growth': 4.8, 'financial_inclusion': 85.1}
-    poverty_reduction = (mobile_delta*0.25 + edu_delta*0.35 +
-                         fdi_delta*0.12 + infra_delta*0.15)
-    unemp_reduction   = (edu_delta*0.8 + fdi_delta*0.6 + mobile_delta*0.2)
-    projected = {
-        'poverty':            max(0, baseline['poverty'] - poverty_reduction),
-        'youth_unemployment': max(0, baseline['youth_unemployment'] - unemp_reduction),
-        'gini':               max(0, baseline['gini'] - mobile_delta*0.05 - edu_delta*0.1),
-        'gdp_growth':         baseline['gdp_growth'] + fdi_delta*0.3 + infra_delta*0.2,
-        'financial_inclusion': min(100, baseline['financial_inclusion'] + mobile_delta*0.45),
-    }
-    return baseline, projected
-
-baseline, scenario = simulate_policy(mobile_delta=15, edu_delta=2, fdi_delta=2.0, infra_delta=1.5)
-
-print(f"{'Metric':<25} {'Baseline':>10} {'Scenario':>10} {'Change':>10}")
-print("-"*55)
-for key in baseline:
-    b, s = baseline[key], scenario[key]
-    delta = s - b
-    print(f"  {key.replace('_',' ').title():<23} {b:>10.1f} {s:>10.1f} {delta:>+10.1f}")
-
-# Waterfall chart
-drivers = {
-    'Mobile (+15pp)':    15*0.25,
-    'Education (+2pp)':  2*0.35,
-    'FDI (+$2B)':        2.0*0.12,
-    'Infrastructure':    1.5*0.15,
+# ── CELL 21: Holt-Winters forecast ────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+targets_fc = {
+    "GDP Growth (%)":            "#27AE60",
+    "Inflation Rate (%)":        "#E74C3C",
+    "Access to Electricity (%)": "#F39C12",
 }
-fig, ax = plt.subplots(figsize=(9, 5))
-bars = ax.bar(list(drivers.keys()), list(drivers.values()),
-              color=['#27ae60','#2ecc71','#3498db','#2980b9'], alpha=0.85)
-total = sum(drivers.values())
-ax.axhline(total, color='red', ls='--', alpha=0.7, label=f'Total: {total:.2f}pp reduction')
-ax.set_title('Poverty Reduction Drivers (percentage points)', fontweight='bold')
-ax.set_ylabel('Poverty Reduction (pp)'); ax.legend()
-for bar, val in zip(bars, drivers.values()):
-    ax.text(bar.get_x()+bar.get_width()/2, bar.get_height()+0.03,
-            f'-{val:.2f}pp', ha='center', fontweight='bold', fontsize=10)
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+for ax, (col, color) in zip(axes, targets_fc.items()):
+    if col not in macro_clean.columns:
+        ax.set_title(f"{col} (not available)"); continue
+    series = macro_clean.set_index("Year")[col].dropna()
+    years  = list(series.index)
+    try:
+        hw = ExponentialSmoothing(series.values, trend="add", damped_trend=True)
+        hw_fit = hw.fit(optimized=True)
+        hw_fc  = hw_fit.forecast(5)
+        fc_yrs = list(range(int(years[-1])+1, int(years[-1])+6))
+        ax.fill_between(years, series.values, alpha=0.15, color=color)
+        ax.plot(years, series.values, color=color, linewidth=2.5,
+                marker="o", markersize=4, label="Historical")
+        ax.plot([int(years[-1])]+fc_yrs, [float(series.iloc[-1])]+list(hw_fc),
+                color=color, linewidth=2.5, linestyle="--", marker="D",
+                markersize=5, label="HW Forecast")
+    except Exception as e:
+        ax.text(0.5, 0.5, str(e), ha="center", va="center",
+                transform=ax.transAxes, color="#E74C3C", fontsize=9)
+    ax.set_title(col, fontsize=10); ax.set_xlabel("Year")
+    ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
+
+plt.suptitle("Holt-Winters Exponential Smoothing - 5-Year Forecasts", fontsize=14)
 plt.tight_layout()
-plt.savefig('policy_simulation.png', dpi=100, bbox_inches='tight')
+plt.savefig("forecasts.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
 plt.show()
-print(f"\\nTotal poverty reduction: {total:.2f}pp  ({baseline['poverty']:.1f}% → {scenario['poverty']:.1f}%)")
-"""))
+''').strip()))
 
-C.append(new_markdown_cell("""## 7. Conclusions & Recommendations
+# ── CELL 22: Anomaly Detection ────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+anom_cols_use = [c for c in ["GDP Growth (%)","Inflation Rate (%)","Unemployment Rate (%)"]
+                  if c in macro_clean.columns]
+anom_df  = macro_clean[["Year"]+anom_cols_use].dropna().copy()
+X_anom   = StandardScaler().fit_transform(anom_df[anom_cols_use].values)
 
-### 7.1 Key Findings
+iso = IsolationForest(n_estimators=200, contamination=0.10, random_state=42)
+anom_df["Anomaly"]       = iso.fit_predict(X_anom) == -1
+anom_df["Anomaly_Score"] = -iso.score_samples(X_anom)
 
-| Finding | Evidence | Confidence |
-|---------|----------|------------|
-| M-Pesa is Kenya's #1 poverty reduction tool | ML R²=0.904 | Very High |
-| NE Kenya counties are in development crisis | 76–82% poverty rates | Verified |
-| Youth unemployment (61.5%) is 4.5× global average | ILO + model | Verified |
-| University enrollment is top unemployment lever | GBM feature importance | High |
-| 5 distinct development tiers exist across counties | KMeans k=5 | Validated |
-| GDP growth alone ≠ poverty reduction | Correlation analysis | Confirmed |
+KNOWN_SHOCKS = {
+    2008: "GFC", 2011: "Inflation+Drought",
+    2017: "Elections", 2020: "COVID-19", 2022: "Post-COVID"
+}
 
-### 7.2 Policy Recommendations
+fig, axes = plt.subplots(1, 2, figsize=(16, 5))
 
-1. **Urgent NE Kenya intervention** – Mobile money agents + TVET centres in Wajir, Mandera, Turkana
-2. **Scale mobile financial services** – Target 95%+ mobile penetration (each 1pp → 0.25pp poverty reduction)
-3. **Invest in TVET & digital skills** – Top driver of youth employment outcomes
-4. **Accelerate rural electrification** – Off-grid solar fastest for 47% without electricity
-5. **Progressive taxation** – Address Gini of 40.8 via redistributive policies
-6. **Attract FDI in ICT** – Creates formal employment at scale for youth
-"""))
+ax = axes[0]
+ax.plot(anom_df["Year"], anom_df["Anomaly_Score"], color="#8E44AD",
+        linewidth=2, marker="o", markersize=5)
+anom_pts = anom_df[anom_df["Anomaly"]]
+ax.scatter(anom_pts["Year"], anom_pts["Anomaly_Score"],
+           color="#E74C3C", s=120, zorder=6, marker="*", label="Anomaly")
+thr = anom_pts["Anomaly_Score"].min() if len(anom_pts) > 0 else 0
+ax.axhline(thr, color="#E74C3C", linestyle="--", linewidth=1.5,
+           label=f"Threshold {thr:.3f}")
+ax.set_xlabel("Year"); ax.set_ylabel("Anomaly Score")
+ax.set_title("Isolation Forest Anomaly Scores"); ax.legend()
+ax.grid(True, alpha=0.3)
 
-C.append(new_code_cell("""\
-# Final model summary
-model_summary = pd.DataFrame([
-    {'Model': 'Gradient Boosting',  'Task': 'Mobile money → poverty', 'R²': results['Gradient Boosting']['R2'], 'Status': 'BEST'},
-    {'Model': 'Random Forest',       'Task': 'Mobile money → poverty', 'R²': results['Random Forest']['R2'],      'Status': 'Good'},
-    {'Model': 'Ridge Regression',    'Task': 'Mobile money → poverty', 'R²': results['Ridge Regression']['R2'],   'Status': 'Good'},
-    {'Model': 'KMeans (k=5)',        'Task': 'County clustering',       'R²': 'N/A',                              'Status': 'Validated'},
-    {'Model': 'Gradient Boosting',  'Task': 'Youth unemployment',      'R²': round(r2_y, 3),                     'Status': 'Strong'},
-    {'Model': 'Holt-Winters',        'Task': 'GDP/Poverty forecasting', 'R²': 'N/A',                              'Status': 'Applied'},
-    {'Model': 'ARIMA(2,1,2)',        'Task': 'Macro forecasting',       'R²': 'N/A',                              'Status': 'Applied'},
-])
-print("=== Model Summary ===")
-print(model_summary.to_string(index=False))
-print(f"\\nPoverty 2000→2023: {float(pov_s.iloc[0]):.1f}% → {float(pov_s.iloc[-1]):.1f}%")
-print(f"Financial inclusion: 26.4% → 85.1% (+58.7pp)")
-print(f"Poverty forecast 2028 (Holt-Winters): {float(hw_pov.iloc[-1]):.1f}%")
-"""))
+ax2 = axes[1]
+first_col = anom_cols_use[0]
+ax2.plot(anom_df["Year"], anom_df[first_col], color="#3498DB",
+         linewidth=2, marker="o", markersize=4, label=first_col)
+ax2.scatter(anom_pts["Year"], anom_pts[first_col],
+            color="#E74C3C", s=120, zorder=6, marker="x",
+            linewidths=2.5, label="Anomaly Year")
+ax2.set_xlabel("Year"); ax2.set_ylabel(first_col)
+ax2.set_title(f"{first_col} - Anomalies Highlighted"); ax2.legend()
+ax2.grid(True, alpha=0.3)
 
-C.append(new_markdown_cell("""---
+plt.suptitle("Isolation Forest Economic Anomaly Detection", fontsize=14)
+plt.tight_layout()
+plt.savefig("anomaly_detection.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+plt.show()
 
-## Appendix A: Data Download Links
+anomalous_years = sorted(anom_df[anom_df["Anomaly"]]["Year"].tolist())
+print(f"Anomalous years detected: {anomalous_years}")
+print(f"Total: {len(anomalous_years)} out of {len(anom_df)} years")
+''').strip()))
 
-| File | Description | Source URL |
-|------|-------------|-----------|
-| `kenya_macro_indicators.csv` | World Bank macro series 2000–2023 | [data.worldbank.org/country/KE](https://data.worldbank.org/country/KE) |
-| `kenya_county_data.csv` | 50 counties poverty, population, HDI | [knbs.or.ke – 2019 Census](https://www.knbs.or.ke/?p=5621) |
-| `kenya_mobile_money.csv` | M-Pesa 2007–2023 | [centralbank.go.ke](https://www.centralbank.go.ke/financial-sector-statistics/) |
-| `kenya_youth_unemployment.csv` | ILO youth unemployment 2005–2023 | [ilostat.ilo.org](https://ilostat.ilo.org/data/) |
-| `kenya_sector_employment.csv` | 9-sector employment shares 2010–2023 | [knbs.or.ke](https://www.knbs.or.ke/) |
-| `kenya_regional_stats.csv` | 8-region aggregates | Derived from county data |
+# ── CELL 23: Policy Simulation header ────────────────────────────────
+cells.append(new_markdown_cell("## 6. Policy What-If Simulation"))
 
-**Raw GitHub download URL:**
-```
-https://raw.githubusercontent.com/kaks2679/project/main/data/<filename>.csv
-```
+# ── CELL 24: Policy simulation ────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+BASELINE = {
+    "poverty": 33.5, "youth_unemployment": 61.5,
+    "gini": 40.8, "gdp_growth": 4.8, "financial_inclusion": 85.1,
+}
 
-## Appendix B: Reproduce This Analysis
+def simulate_policy(mobile_pen=85.1, edu_spend=5.5, fdi=0.5,
+                    infrastructure=50.0, remittances=4.2):
+    return {
+        "Poverty Rate (%)":      round(BASELINE["poverty"]
+            -(mobile_pen-85.1)*0.18-(edu_spend-5.5)*0.45
+            -(fdi-0.5)*0.30-(infrastructure-50)*0.10-(remittances-4.2)*0.25, 1),
+        "Youth Unemployment (%)": round(BASELINE["youth_unemployment"]
+            -(mobile_pen-85.1)*0.10-(edu_spend-5.5)*0.60-(fdi-0.5)*0.55, 1),
+        "Gini Index":            round(BASELINE["gini"]
+            -(mobile_pen-85.1)*0.08-(edu_spend-5.5)*0.35, 1),
+        "GDP Growth (%)":        round(BASELINE["gdp_growth"]
+            +(fdi-0.5)*0.40+(infrastructure-50)*0.08+(remittances-4.2)*0.15, 1),
+        "Financial Inclusion (%)": round(BASELINE["financial_inclusion"]
+            +(mobile_pen-85.1)*0.35+(edu_spend-5.5)*0.12, 1),
+    }
 
-```bash
-git clone https://github.com/kaks2679/project.git
-cd project
-pip install -r requirements.txt
-jupyter lab notebooks/kenya_economic_pulse_analysis.ipynb
-# Or run the dashboard:
-streamlit run app.py
-```
+scenarios = {
+    "Baseline 2023":      dict(mobile_pen=85.1, edu_spend=5.5,
+                                fdi=0.5, infrastructure=50, remittances=4.2),
+    "Mobile+FDI Boost":   dict(mobile_pen=95.0, edu_spend=7.0,
+                                fdi=2.5, infrastructure=70, remittances=6.0),
+    "Education-Led":      dict(mobile_pen=88.0, edu_spend=10.0,
+                                fdi=1.0, infrastructure=60, remittances=5.0),
+    "Infrastructure Push":dict(mobile_pen=87.0, edu_spend=6.5,
+                                fdi=1.5, infrastructure=85, remittances=5.5),
+}
 
-## Appendix C: Author
+results_sc = {name: simulate_policy(**params) for name, params in scenarios.items()}
+results_sc_df = pd.DataFrame(results_sc).T.round(2)
+print("=== Policy Scenario Comparison ===")
+print(results_sc_df.to_string())
 
-**Stephen Muema** – Data Scientist & ML Engineer, Nairobi, Kenya  
-- Portfolio: [muemastephenportfolio.netlify.app](https://muemastephenportfolio.netlify.app)  
-- GitHub: [@Kaks753](https://github.com/Kaks753)  
-- LinkedIn: [Stephen Muema](https://www.linkedin.com/in/stephen-muema-617339359)  
-- Email: musyokas753@gmail.com  
-"""))
+print("\\n=== Change vs Baseline ===")
+base_row  = results_sc_df.loc["Baseline 2023"]
+delta_df  = results_sc_df.drop("Baseline 2023") - base_row
+print(delta_df.round(2).to_string())
+''').strip()))
 
-nb.cells = C
+# ── CELL 25: Policy chart ─────────────────────────────────────────────
+cells.append(new_code_cell(dedent('''
+indicators_p = ["Poverty Rate (%)","Youth Unemployment (%)","Gini Index",
+                 "GDP Growth (%)","Financial Inclusion (%)"]
+x       = np.arange(len(indicators_p))
+width   = 0.2
+colors  = ["#566573","#27AE60","#3498DB","#F39C12"]
 
-out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kenya_economic_pulse_analysis.ipynb')
-with open(out_path, 'w') as f:
+fig, ax = plt.subplots(figsize=(14, 7))
+for i, (name, res) in enumerate(results_sc.items()):
+    vals = [res[ind] for ind in indicators_p]
+    ax.bar(x + i*width, vals, width, label=name, color=colors[i], alpha=0.85)
+
+ax.set_xticks(x + width*1.5)
+ax.set_xticklabels(indicators_p, rotation=15, ha="right")
+ax.set_ylabel("Indicator Value")
+ax.set_title("Policy Scenario Comparison", fontsize=14)
+ax.legend(loc="upper right", fontsize=9)
+ax.grid(True, alpha=0.25, axis="y")
+
+plt.tight_layout()
+plt.savefig("policy_simulation.png", dpi=120, bbox_inches="tight", facecolor="#0E1117")
+plt.show()
+''').strip()))
+
+# ── CELL 26: Conclusions ──────────────────────────────────────────────
+cells.append(new_markdown_cell("## 7. Conclusions & Recommendations"))
+
+cells.append(new_code_cell(dedent('''
+print("="*65)
+print("Kenya Economic Pulse — Key Findings")
+print("="*65)
+
+findings = [
+    ("M-Pesa & Poverty",
+     f"GBM R2={best_r2:.3f}: financial inclusion is #1 poverty predictor.\\n"
+     f"  Poverty: {mobile['Poverty_Rate_National'].iloc[0]:.1f}% (2007) -> "
+     f"{mobile['Poverty_Rate_National'].iloc[-1]:.1f}% (2023)"),
+    ("County Inequality",
+     f"KMeans k=5: {county['Poverty_Rate'].max()-county['Poverty_Rate'].min():.1f}pp gap "
+     f"across 47 counties (Wajir {county['Poverty_Rate'].max():.1f}% vs "
+     f"Kiambu {county['Poverty_Rate'].min():.1f}%)"),
+    ("Youth Unemployment",
+     f"GBM model: education spending = #1 lever. "
+     f"Current {youth['Youth_Unemployment_Pct'].iloc[-1]:.1f}% vs global avg 13.6%"),
+    ("Anomaly Detection",
+     f"Isolation Forest found {len(anomalous_years)} anomalous years: {anomalous_years}"),
+]
+
+for title, body in findings:
+    print(f"\\n  {title}")
+    print(f"  {body}")
+
+print("\\n" + "="*65)
+print("Policy Recommendations:")
+recs = [
+    "1. Expand M-Pesa & fintech access to rural and North-Eastern counties",
+    "2. Increase education budget to >=8% GDP",
+    "3. Create Special Economic Zones in border counties to attract FDI",
+    "4. Accelerate rural electrification (11M+ still off-grid)",
+    "5. Formalise diaspora remittances to reduce transfer costs",
+]
+for r in recs:
+    print(f"  {r}")
+print("="*65)
+''').strip()))
+
+# ── CELL 27: Appendix ─────────────────────────────────────────────────
+cells.append(new_markdown_cell(dedent("""
+## 8. Appendix — Data Sources
+
+| Dataset | Source | URL |
+|---------|--------|-----|
+| Macro Indicators | World Bank Open Data | https://data.worldbank.org/country/KE |
+| County Data | KNBS 2019 Census | https://www.knbs.or.ke/2019-kenya-population-and-housing-census/ |
+| Mobile Money | Central Bank of Kenya | https://www.centralbank.go.ke/annual-reports/ |
+| Youth Unemployment | ILO ILOSTAT | https://ilostat.ilo.org/data/ |
+| Sector Employment | KNBS Labour Survey | https://www.knbs.or.ke/ |
+| Financial Inclusion | FinAccess Survey | https://www.knbs.or.ke/finaccess-household-survey/ |
+
+**Author:** Stephen Muema | Data Scientist & ML Engineer
+**Portfolio:** https://muemastephenportfolio.netlify.app/
+**GitHub:** https://github.com/kaks2679/project
+**License:** MIT
+""").strip()))
+
+# ── Build notebook ────────────────────────────────────────────────────
+nb = new_notebook()
+nb["metadata"] = {
+    "kernelspec": {"display_name":"Python 3","language":"python","name":"python3"},
+    "language_info": {"name":"python","version":"3.10.0"}
+}
+nb["cells"] = cells
+
+OUTPUT = "kenya_economic_pulse_analysis.ipynb"
+with open(OUTPUT, "w", encoding="utf-8") as f:
     nbformat.write(nb, f)
 
-print(f"Notebook written: {out_path}  ({len(nb.cells)} cells)")
+n_code = sum(1 for c in cells if c["cell_type"] == "code")
+n_md   = sum(1 for c in cells if c["cell_type"] == "markdown")
+print(f"Notebook written: {OUTPUT}")
+print(f"Total cells: {len(cells)}  (code: {n_code}, markdown: {n_md})")

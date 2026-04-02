@@ -1,6 +1,10 @@
 """
 Kenya Economic Pulse — Main Streamlit Application
+10-page interactive data science dashboard for Kenya economic analysis.
 Author: Stephen Muema | Data Scientist & ML Engineer
+Portfolio: https://muemastephenportfolio.netlify.app/
+GitHub:    https://github.com/kaks2679/project
+Version:   2.2.0  |  April 2026
 """
 
 import streamlit as st
@@ -8,7 +12,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-import sys, os
+import sys
+import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -19,12 +24,13 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        "Get Help":    "https://github.com/kaks2679",
-        "About":       "Kenya Economic Pulse — Built by Stephen Muema, Data Scientist",
+        "Get Help":    "https://github.com/kaks2679/project",
+        "Report a bug":"mailto:stephenmuema@proton.me",
+        "About":       "Kenya Economic Pulse v2.2 — Built by Stephen Muema, Data Scientist",
     }
 )
 
-# ── Global styles ────────────────────────────────────────────────────
+# ── Global CSS styles ────────────────────────────────────────────────
 st.markdown("""
 <style>
     .stApp { background-color: #0E1117; }
@@ -60,13 +66,41 @@ st.markdown("""
     ::-webkit-scrollbar        { width: 6px; }
     ::-webkit-scrollbar-track  { background: #0E1117; }
     ::-webkit-scrollbar-thumb  { background: #2C3E50; border-radius: 3px; }
+
+    div[data-testid="stRadio"] > label { color: #AAB7B8 !important; font-size: .9rem; }
+    div[data-testid="stRadio"] > div > label { color: #ECF0F1 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── Page imports (after set_page_config) ────────────────────────────
 from utils.data_fetcher import get_all_data
-from pages import economic_indicators, county_inequality, mobile_money, youth_unemployment
+from pages import (
+    economic_indicators,
+    county_inequality,
+    mobile_money,
+    youth_unemployment,
+    forecaster,
+    county_comparison,
+    policy_simulator,
+    anomaly_detection,
+    nlq_engine,
+    developer,
+)
 
+# ── Navigation pages ─────────────────────────────────────────────────
+PAGES = [
+    "🏠 Overview",
+    "📊 Economic Indicators",
+    "🗺️ County Inequality Map",
+    "💚 M-Pesa Impact Predictor",
+    "🎓 Youth Unemployment",
+    "🔮 Economic Forecaster",
+    "⚖️ County Comparison",
+    "🏛️ Policy Simulator",
+    "🔍 Anomaly Detection",
+    "💬 NL Query Engine",
+    "👨‍💻 Developer / About",
+]
 
 # ── Data loading with caching ────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -87,19 +121,19 @@ def render_overview(data: dict):
                 padding: 3rem 2rem; border-radius: 20px; margin-bottom: 2rem; text-align:center;'>
         <div style='font-size:4rem'>🇰🇪</div>
         <h1 style='color:white; font-size:2.8rem; margin:.5rem 0;'>Kenya Economic Pulse</h1>
-        <p style='color:#AED6F1; font-size:1.15rem; max-width:700px; margin:.5rem auto 1.5rem;'>
+        <p style='color:#AED6F1; font-size:1.15rem; max-width:750px; margin:.5rem auto 1.5rem;'>
             Real-time economic intelligence for Kenya — powered by World Bank data,
-            KNBS census, CBK mobile money statistics, and machine learning.
+            KNBS Census, CBK mobile money statistics, and machine learning.
         </p>
         <div style='display:flex; justify-content:center; gap:.8rem; flex-wrap:wrap;'>
             <span style='background:rgba(255,255,255,.12); color:white; padding:.4rem 1rem;
-                         border-radius:20px; font-size:.85rem;'>📊 4 Interactive Dashboards</span>
+                         border-radius:20px; font-size:.85rem;'>📊 10 Interactive Dashboards</span>
             <span style='background:rgba(255,255,255,.12); color:white; padding:.4rem 1rem;
-                         border-radius:20px; font-size:.85rem;'>🤖 ML-Powered Forecasts</span>
+                         border-radius:20px; font-size:.85rem;'>🤖 7 ML Models</span>
             <span style='background:rgba(255,255,255,.12); color:white; padding:.4rem 1rem;
                          border-radius:20px; font-size:.85rem;'>🗺️ 47 County Analysis</span>
             <span style='background:rgba(255,255,255,.12); color:white; padding:.4rem 1rem;
-                         border-radius:20px; font-size:.85rem;'>🔮 Scenario Simulator</span>
+                         border-radius:20px; font-size:.85rem;'>💬 NL Query Engine</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -120,7 +154,7 @@ def render_overview(data: dict):
         ("🎓 Youth Unemp.",   f"{last_yu['Youth_Unemployment_Pct']:.1f}%","#F39C12"),
         ("🏚️ Poverty Rate",  f"{last_mm['Poverty_Rate_National']:.1f}%", "#E67E22"),
     ]
-    for col, (lbl, val, color) in zip([c1,c2,c3,c4,c5,c6], kpis):
+    for col, (lbl, val, color) in zip([c1, c2, c3, c4, c5, c6], kpis):
         col.markdown(f"""
         <div style='background:#1C2833; padding:1rem; border-radius:10px;
                     border-top:3px solid {color}; text-align:center; min-height:90px;'>
@@ -131,7 +165,7 @@ def render_overview(data: dict):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Quick charts
+    # Quick charts: 2-column layout
     col_left, col_right = st.columns(2)
 
     with col_left:
@@ -154,8 +188,7 @@ def render_overview(data: dict):
         fig.update_layout(
             plot_bgcolor="#0E1117", paper_bgcolor="#0E1117",
             font=dict(color="white"), height=340,
-            legend=dict(bgcolor="#1C2833", font=dict(color="white"), x=0, y=1.1,
-                        orientation="h"),
+            legend=dict(bgcolor="#1C2833", font=dict(color="white"), x=0, y=1.1, orientation="h"),
             hovermode="x unified",
             xaxis=dict(gridcolor="#2C3E50"),
             margin=dict(l=10, r=10, t=30, b=20)
@@ -182,8 +215,7 @@ def render_overview(data: dict):
         fig2.update_layout(
             plot_bgcolor="#0E1117", paper_bgcolor="#0E1117",
             font=dict(color="white"), height=340,
-            legend=dict(bgcolor="#1C2833", font=dict(color="white"), x=0, y=1.1,
-                        orientation="h"),
+            legend=dict(bgcolor="#1C2833", font=dict(color="white"), x=0, y=1.1, orientation="h"),
             hovermode="x unified",
             xaxis=dict(gridcolor="#2C3E50"),
             yaxis=dict(gridcolor="#2C3E50"),
@@ -192,7 +224,7 @@ def render_overview(data: dict):
         st.plotly_chart(fig2, use_container_width=True)
 
     # County snapshot
-    st.markdown("#### 🗺️ County Poverty Snapshot")
+    st.markdown("#### 🗺️ County Poverty Snapshot — Top 10 vs Bottom 10")
     top_poor = county.nlargest(10, "Poverty_Rate")[["County", "Poverty_Rate", "Region"]]
     top_rich = county.nsmallest(10, "Poverty_Rate")[["County", "Poverty_Rate", "Region"]]
     snap_df  = pd.concat([
@@ -204,16 +236,14 @@ def render_overview(data: dict):
         color_discrete_map={"Highest Poverty": "#E74C3C", "Lowest Poverty": "#27AE60"},
         barmode="group",
         labels={"Poverty_Rate": "Poverty Rate (%)"},
-        title="Top 10 Richest vs Poorest Counties"
     )
     fig_snap.update_layout(
         plot_bgcolor="#0E1117", paper_bgcolor="#0E1117",
         font=dict(color="white"), height=360,
         legend=dict(bgcolor="#1C2833", font=dict(color="white")),
-        title_font=dict(color="white", size=15),
         xaxis=dict(gridcolor="#2C3E50", tickangle=-30),
         yaxis=dict(gridcolor="#2C3E50"),
-        margin=dict(l=10, r=10, t=50, b=10)
+        margin=dict(l=10, r=10, t=20, b=10)
     )
     st.plotly_chart(fig_snap, use_container_width=True)
 
@@ -251,14 +281,14 @@ def render_overview(data: dict):
                 border:1px solid #2C3E50; margin-top:1rem;'>
         <h3 style='color:#3498DB; margin-top:0'>🔬 About This Project</h3>
         <p style='color:#AAB7B8; line-height:1.8;'>
-            <b style='color:white'>Kenya Economic Pulse</b> is an end-to-end data science project
+            <b style='color:white'>Kenya Economic Pulse</b> is an end-to-end data science portfolio
             combining open-source datasets with machine learning to answer Kenya's most pressing
             economic questions using Python, Streamlit, and real data.
         </p>
-        <div style='display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin-top:1rem;'>
+        <div style='display:grid; grid-template-columns:1fr 1fr 1fr; gap:.8rem; margin-top:1rem;'>
             <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #3498DB;'>
                 <b style='color:white'>📊 Economic Indicators</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>20+ macro indicators with 5-year Holt-Winters forecasting</p>
+                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>20+ macro indicators + 5yr Holt-Winters forecasting</p>
             </div>
             <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #27AE60;'>
                 <b style='color:white'>🗺️ County Inequality Map</b>
@@ -266,15 +296,23 @@ def render_overview(data: dict):
             </div>
             <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #8E44AD;'>
                 <b style='color:white'>💚 M-Pesa Impact Model</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Gradient Boosting regression proving mobile money reduces poverty</p>
+                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Gradient Boosting R²=0.904 proving mobile money reduces poverty</p>
             </div>
             <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #F39C12;'>
-                <b style='color:white'>🔮 Scenario Simulator</b>
-                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Interactive sliders to predict youth unemployment under custom scenarios</p>
+                <b style='color:white'>🔮 Economic Forecaster</b>
+                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Holt-Winters + ARIMA(2,1,2) with confidence intervals</p>
+            </div>
+            <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #E74C3C;'>
+                <b style='color:white'>🔍 Anomaly Detection</b>
+                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Isolation Forest detecting economic shocks (2008, 2020…)</p>
+            </div>
+            <div style='background:#0E1117; padding:.8rem 1rem; border-radius:8px; border-left:3px solid #1ABC9C;'>
+                <b style='color:white'>💬 NL Query Engine</b>
+                <p style='color:#7F8C8D; font-size:.85rem; margin:.3rem 0 0'>Ask plain-English questions — get instant data-backed answers</p>
             </div>
         </div>
         <p style='color:#566573; font-size:.82rem; margin:1rem 0 0;'>
-            🛠️ Built with: Python · Streamlit · Scikit-learn · Plotly · Folium · World Bank API · KNBS · CBK Data
+            🛠️ Stack: Python · Streamlit · Scikit-learn · Plotly · Folium · Statsmodels · World Bank API · KNBS · CBK
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -285,35 +323,30 @@ with st.sidebar:
     st.markdown("""
     <div style='text-align:center; padding:1rem 0;'>
         <div style='font-size:3rem'>🇰🇪</div>
-        <h2 style='color:#3498DB; margin:.3rem 0; font-size:1.3rem'>Kenya Economic Pulse</h2>
-        <p style='color:#7F8C8D; font-size:.8rem; margin:0'>by Stephen Muema</p>
-        <hr style='border-color:#2C3E50; margin:1rem 0'>
+        <h2 style='color:#3498DB; margin:.3rem 0; font-size:1.2rem'>Kenya Economic Pulse</h2>
+        <p style='color:#7F8C8D; font-size:.75rem; margin:0'>by Stephen Muema · v2.2.0</p>
+        <hr style='border-color:#2C3E50; margin:.8rem 0'>
     </div>
     """, unsafe_allow_html=True)
 
     page = st.radio(
         "📌 Navigate",
-        [
-            "🏠 Overview",
-            "📊 Economic Indicators",
-            "🗺️ County Inequality Map",
-            "💚 M-Pesa Impact Predictor",
-            "🎓 Youth Unemployment Forecaster",
-        ],
+        PAGES,
         key="nav_page"
     )
 
     st.markdown("<hr style='border-color:#2C3E50'>", unsafe_allow_html=True)
 
     st.markdown("""
-    <div style='background:#1C2833; padding:.8rem; border-radius:8px; font-size:.8rem;'>
+    <div style='background:#1C2833; padding:.8rem; border-radius:8px; font-size:.78rem;'>
         <b style='color:#3498DB'>📡 Data Sources</b><br>
         <span style='color:#AAB7B8'>
         • World Bank Open API<br>
         • KNBS 2019 Census<br>
         • CBK Annual Reports<br>
         • ILO Labour Statistics<br>
-        • FinAccess Survey 2021
+        • FinAccess Survey 2021<br>
+        • KIHBS 2021
         </span>
     </div>
     """, unsafe_allow_html=True)
@@ -321,12 +354,14 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("""
-    <div style='text-align:center; font-size:.75rem; color:#566573;'>
+    <div style='text-align:center; font-size:.74rem; color:#566573;'>
         Built with ❤️ by<br>
         <a href='https://muemastephenportfolio.netlify.app/'
            style='color:#3498DB; text-decoration:none;'>Stephen Muema</a><br>
         Data Scientist &amp; ML Engineer<br>
-        Nairobi, Kenya 🇰🇪
+        Nairobi, Kenya 🇰🇪<br><br>
+        <a href='https://github.com/kaks2679/project'
+           style='color:#566573; text-decoration:none;'>🐙 GitHub Repo</a>
     </div>
     """, unsafe_allow_html=True)
 
@@ -345,5 +380,17 @@ elif page == "🗺️ County Inequality Map":
     county_inequality.render(data)
 elif page == "💚 M-Pesa Impact Predictor":
     mobile_money.render(data)
-elif page == "🎓 Youth Unemployment Forecaster":
+elif page == "🎓 Youth Unemployment":
     youth_unemployment.render(data)
+elif page == "🔮 Economic Forecaster":
+    forecaster.render(data)
+elif page == "⚖️ County Comparison":
+    county_comparison.render(data)
+elif page == "🏛️ Policy Simulator":
+    policy_simulator.render(data)
+elif page == "🔍 Anomaly Detection":
+    anomaly_detection.render(data)
+elif page == "💬 NL Query Engine":
+    nlq_engine.render(data)
+elif page == "👨‍💻 Developer / About":
+    developer.render(data)
