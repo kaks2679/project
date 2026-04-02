@@ -173,7 +173,7 @@ def render(data: dict):
     # ── Transaction volumes ──────────────────────────────────────────
     st.markdown("### 💸 Mobile Money Transaction Volumes (KES Billions)")
     fig_vol = go.Figure()
-    fig_vol.add_trace(go.Area(
+    fig_vol.add_trace(go.Scatter(
         x=mm_df["Year"], y=mm_df["Mobile_Money_Volume_B_KES"],
         fill="tozeroy",
         fillcolor="rgba(39,174,96,0.25)",
